@@ -39,6 +39,7 @@ pub mod toplevel_info;
 pub mod toplevel_management;
 pub mod workspace;
 pub mod xdg_activation;
+pub mod xdg_dialog;
 pub mod xdg_foreign;
 pub mod xdg_shell;
 pub mod xwayland_keyboard_grab;

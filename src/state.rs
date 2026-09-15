@@ -10,7 +10,7 @@ use crate::{
     config::{CompOutputConfig, Config, ScreenFilter},
     dbus::DBusState,
     input::{PointerFocusState, gestures::GestureState},
-    shell::{CosmicSurface, SeatExt, Shell, grabs::SeatMoveGrabState},
+    shell::{CosmicSurface, ModalDialogs, SeatExt, Shell, grabs::SeatMoveGrabState},
     utils::prelude::OutputExt,
     wayland::{
         handlers::{data_device::get_dnd_icon, image_copy_capture::SessionHolder},
@@ -103,7 +103,7 @@ use smithay::{
         shell::{
             kde::decoration::KdeDecorationState,
             wlr_layer::WlrLayerShellState,
-            xdg::{XdgShellState, decoration::XdgDecorationState},
+            xdg::{XdgShellState, decoration::XdgDecorationState, dialog::XdgDialogState},
         },
         shm::ShmState,
         single_pixel_buffer::SinglePixelBufferState,
@@ -316,6 +316,8 @@ pub struct Common {
     pub toplevel_management_state: ToplevelManagementState,
     pub xdg_activation_state: XdgActivationState,
     pub xdg_foreign_state: XdgForeignState,
+    pub xdg_dialog_state: XdgDialogState,
+    pub modal_dialogs: ModalDialogs,
     pub workspace_state: WorkspaceState<State>,
     pub xwayland_scale: Option<f64>,
     pub xwayland_state: Option<XWaylandState>,
@@ -747,6 +749,7 @@ impl State {
         );
         let xdg_activation_state = XdgActivationState::new::<State>(dh);
         let xdg_foreign_state = XdgForeignState::new::<State>(dh);
+        let xdg_dialog_state = XdgDialogState::new::<State>(dh);
         let toplevel_info_state = ToplevelInfoState::new(dh, client_not_sandboxed);
         let toplevel_management_state = ToplevelManagementState::new::<State, _>(
             dh,
@@ -826,6 +829,8 @@ impl State {
                 toplevel_management_state,
                 xdg_activation_state,
                 xdg_foreign_state,
+                xdg_dialog_state,
+                modal_dialogs: ModalDialogs::default(),
                 workspace_state,
                 background_effect_state,
                 a11y_state,

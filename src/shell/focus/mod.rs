@@ -199,6 +199,14 @@ impl Shell {
         serial: Option<Serial>,
         update_cursor: bool,
     ) {
+        // The parent of an open modal dialog cannot be interacted with: if it
+        // is about to be activated, activate its modal dialog instead. This
+        // covers pointer clicks, focus-follows-mouse, xdg-activation and the
+        // dock/taskbar.
+        let target =
+            target.map(|target| modal_redirect(state, target).unwrap_or_else(|| target.clone()));
+        let target = target.as_ref();
+
         let focus_target = match target {
             Some(KeyboardFocusTarget::Element(mapped)) => Some(FocusTarget::Window(mapped.clone())),
             Some(KeyboardFocusTarget::Fullscreen(surface)) => {
@@ -595,8 +603,14 @@ impl Common {
                 }
 
                 // update keyboard focus
-                let target = update_focus_target(&shell, seat, &output);
+                let mut target = update_focus_target(&shell, seat, &output);
                 std::mem::drop(shell);
+                if let Some(redirected) = target
+                    .as_ref()
+                    .and_then(|target| modal_redirect(state, target))
+                {
+                    target = Some(redirected);
+                }
                 //I can probably feature gate this condition
                 debug!("Restoring focus to {:?}", target.as_ref());
 
@@ -622,6 +636,27 @@ impl Common {
 
         state.common.shell.write().update_active()
     }
+}
+
+/// Redirects the activation of the parent of an open modal dialog to the
+/// dialog itself.
+fn modal_redirect(state: &State, target: &KeyboardFocusTarget) -> Option<KeyboardFocusTarget> {
+    let KeyboardFocusTarget::Element(mapped) = target else {
+        return None;
+    };
+    let active = mapped.active_window();
+    let surface = active.wl_surface()?;
+    let dialog = state.common.modal_dialogs.dialog_for(&surface)?;
+    let dialog = state
+        .common
+        .shell
+        .read()
+        .element_for_surface(dialog)
+        .cloned()?;
+    if dialog.is_minimized() {
+        return None;
+    }
+    Some(KeyboardFocusTarget::Element(dialog))
 }
 
 fn focus_target_is_valid(
