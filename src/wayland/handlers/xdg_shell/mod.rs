@@ -26,7 +26,7 @@ use smithay::{
         seat::WaylandFocus,
         shell::xdg::{
             PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface, XdgShellHandler,
-            XdgShellState,
+            XdgShellState, XdgToplevelSurfaceData, dialog::ToplevelDialogHint,
         },
     },
 };
@@ -61,6 +61,22 @@ impl XdgShellHandler for State {
             })
         }
         // We will position the window after the first commit, when we know its size hints
+    }
+
+    fn parent_changed(&mut self, surface: ToplevelSurface) {
+        let dialog = surface.wl_surface().clone();
+        let hint = with_states(&dialog, |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .and_then(|data| data.lock().ok().map(|attrs| attrs.dialog_hint))
+                .unwrap_or_default()
+        });
+        if hint == ToplevelDialogHint::Modal {
+            self.common.modal_dialogs.set(dialog, surface.parent());
+        } else {
+            self.common.modal_dialogs.remove(&dialog);
+        }
     }
 
     fn new_popup(&mut self, surface: PopupSurface, positioner: PositionerState) {
@@ -333,6 +349,10 @@ impl XdgShellHandler for State {
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
+        let dialog = surface.wl_surface().clone();
+        self.common.modal_dialogs.remove(&dialog);
+        self.common.modal_dialogs.remove_parent(&dialog);
+
         for (popup, _) in smithay::desktop::PopupManager::popups_for_surface(surface.wl_surface()) {
             if let smithay::desktop::PopupKind::Xdg(ref xdg_popup) = popup {
                 xdg_popup.send_popup_done();
