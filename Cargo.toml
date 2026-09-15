@@ -17,7 +17,7 @@ cosmic-comp-config = { path = "cosmic-comp-config", features = [
     "libdisplay-info",
     "output",
 ] }
-cosmic-config = { git = "https://github.com/pop-os/libcosmic", features = [
+cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be", features = [
     "calloop",
     "macro",
 ] }
@@ -39,11 +39,13 @@ i18n-embed = { version = "0.16", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.10"
-iced_tiny_skia = { git = "https://github.com/pop-os/libcosmic" }
-iced_graphics = { git = "https://github.com/pop-os/libcosmic/", features = ["geometry"] }
+iced_tiny_skia = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be" }
+iced_graphics = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be", features = ["geometry"] }
 indexmap = "2.13"
 keyframe = "1.1.1"
-libcosmic = { git = "https://github.com/pop-os/libcosmic", default-features = false }
+libcosmic = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be", default-features = false, features = [
+    "tiny-skia",
+] }
 libsystemd = { version = "0.7", optional = true }
 log-panics = { version = "2", features = ["with-backtrace"] }
 ordered-float = "5.1"
@@ -145,6 +147,10 @@ lto = "fat"
 [patch."https://github.com/pop-os/cosmic-protocols"]
 cosmic-protocols = { git = "https://github.com/pop-os//cosmic-protocols", branch = "main" }
 
+[patch."https://github.com/pop-os/libcosmic"]
+cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be" }
+cosmic-theme = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be" }
+
 [patch.crates-io]
-smithay = { git = "https://github.com/smithay/smithay.git", rev = "e3d461a" }
+smithay = { git = "https://github.com/smithay/smithay.git", rev = "28c8e0fad905f3e7d01c2446fb60d26659071684" }
 smithay-egui = { git = "https://github.com/Smithay/smithay-egui.git", rev = "6511552" }
