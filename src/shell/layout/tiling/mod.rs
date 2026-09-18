@@ -167,7 +167,7 @@ pub enum Data {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlaceholderType {
     GrabbedWindow,
     DropZone,
@@ -330,6 +330,57 @@ impl Data {
             Data::Group { sizes, .. } => sizes.len(),
             _ => 1,
         }
+    }
+}
+
+fn data_geometry_equivalent(a: &Data, b: &Data) -> bool {
+    match (a, b) {
+        (
+            Data::Group {
+                orientation: orientation_a,
+                sizes: sizes_a,
+                last_geometry: geometry_a,
+                pill_indicator: pill_a,
+                ..
+            },
+            Data::Group {
+                orientation: orientation_b,
+                sizes: sizes_b,
+                last_geometry: geometry_b,
+                pill_indicator: pill_b,
+                ..
+            },
+        ) => {
+            orientation_a == orientation_b
+                && sizes_a == sizes_b
+                && geometry_a == geometry_b
+                && pill_a == pill_b
+        }
+        (
+            Data::Mapped {
+                mapped: mapped_a,
+                last_geometry: geometry_a,
+                minimize_rect: minimize_a,
+            },
+            Data::Mapped {
+                mapped: mapped_b,
+                last_geometry: geometry_b,
+                minimize_rect: minimize_b,
+            },
+        ) => mapped_a == mapped_b && geometry_a == geometry_b && minimize_a == minimize_b,
+        (
+            Data::Placeholder {
+                id: id_a,
+                last_geometry: geometry_a,
+                type_: type_a,
+            },
+            Data::Placeholder {
+                id: id_b,
+                last_geometry: geometry_b,
+                type_: type_b,
+            },
+        ) => id_a == id_b && geometry_a == geometry_b && type_a == type_b,
+        _ => false,
     }
 }
 
@@ -2337,7 +2388,34 @@ impl TilingLayout {
 
         let mut tree = self.queue.trees.back().unwrap().0.copy_clone();
         let blocker = TilingLayout::update_positions(&self.output, &mut tree, gaps);
+        if TilingLayout::trees_equivalent(&tree, &self.queue.trees.back().unwrap().0) {
+            return;
+        }
         self.queue.push_tree(tree, ANIMATION_DURATION, blocker);
+    }
+
+    fn trees_equivalent(a: &Tree<Data>, b: &Tree<Data>) -> bool {
+        let Some(a_root) = a.root_node_id() else {
+            return b.root_node_id().is_none();
+        };
+        let Some(b_root) = b.root_node_id() else {
+            return false;
+        };
+        let mut a_iter = a.traverse_pre_order(a_root).unwrap();
+        let mut b_iter = b.traverse_pre_order(b_root).unwrap();
+        loop {
+            match (a_iter.next(), b_iter.next()) {
+                (Some(a_node), Some(b_node)) => {
+                    if a_node.children().len() != b_node.children().len()
+                        || !data_geometry_equivalent(a_node.data(), b_node.data())
+                    {
+                        return false;
+                    }
+                }
+                (None, None) => return true,
+                _ => return false,
+            }
+        }
     }
 
     #[profiling::function]
@@ -2358,6 +2436,10 @@ impl TilingLayout {
 
     pub fn animations_going(&self) -> bool {
         self.queue.animation_start.is_some()
+    }
+
+    pub fn has_pending_updates(&self) -> bool {
+        self.queue.animation_start.is_some() || self.queue.trees.len() > 1
     }
 
     pub fn update_animation_state(&mut self) -> HashMap<ClientId, Client> {

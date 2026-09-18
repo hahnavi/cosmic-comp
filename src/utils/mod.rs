@@ -6,6 +6,7 @@ pub(crate) use self::ids::id_gen;
 pub mod geometry;
 pub mod global;
 pub mod iced;
+pub mod power;
 pub mod prelude;
 pub mod quirks;
 pub mod rlimit;

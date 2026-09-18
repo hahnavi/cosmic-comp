@@ -55,10 +55,14 @@ pub mod utils;
 pub mod wayland;
 pub mod xwayland;
 
+#[cfg(not(feature = "profile-with-tracy"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[cfg(feature = "profile-with-tracy")]
 #[global_allocator]
-static GLOBAL: profiling::tracy_client::ProfiledAllocator<std::alloc::System> =
-    profiling::tracy_client::ProfiledAllocator::new(std::alloc::System, 10);
+static GLOBAL: profiling::tracy_client::ProfiledAllocator<mimalloc::MiMalloc> =
+    profiling::tracy_client::ProfiledAllocator::new(mimalloc::MiMalloc, 10);
 
 // called by the Xwayland source, either after starting or failing
 impl State {
@@ -184,6 +188,9 @@ pub fn run(hooks: crate::hooks::Hooks) -> Result<(), Box<dyn Error>> {
     // init backend
     backend::init_backend_auto(&display, &mut event_loop, &mut state)?;
 
+    // watch power source for the animation frame cap
+    utils::power::spawn_power_watcher();
+
     if let Err(err) = theme::watch_theme(event_loop.handle()) {
         warn!(?err, "Failed to watch theme");
     }
@@ -199,7 +206,11 @@ pub fn run(hooks: crate::hooks::Hooks) -> Result<(), Box<dyn Error>> {
         }
 
         // trigger routines
-        let clients = state.common.shell.write().update_animations();
+        let clients = if state.common.shell.read().animations_pending() {
+            state.common.shell.write().update_animations()
+        } else {
+            std::collections::HashMap::new()
+        };
         {
             let dh = state.common.display_handle.clone();
             for client in clients.values() {
@@ -213,7 +224,7 @@ pub fn run(hooks: crate::hooks::Hooks) -> Result<(), Box<dyn Error>> {
             let shell = state.common.shell.read();
             if shell.animations_going() {
                 for output in shell.outputs().cloned().collect::<Vec<_>>().into_iter() {
-                    state.backend.schedule_render(&output);
+                    state.backend.schedule_animation_render(&output);
                 }
             }
         }

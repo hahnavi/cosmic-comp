@@ -400,6 +400,15 @@ impl BackendData {
         }
     }
 
+    pub fn schedule_animation_render(&mut self, output: &Output) {
+        match self {
+            BackendData::Winit(_) => {}
+            BackendData::X11(state) => state.schedule_render(output),
+            BackendData::Kms(state) => state.schedule_animation_render(output),
+            _ => unreachable!("No backend was initialized"),
+        }
+    }
+
     pub fn dmabuf_imported(
         &mut self,
         client: Option<Client>,

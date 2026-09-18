@@ -541,6 +541,15 @@ impl Workspace {
             || self.dirty.swap(false, Ordering::SeqCst)
     }
 
+    pub fn animations_pending(&self) -> bool {
+        self.tiling_layer.has_pending_updates()
+            || self.floating_layer.has_animations()
+            || self
+                .fullscreen_surfaces
+                .iter()
+                .any(|f| f.start_at.is_some() || f.ended_at.is_some())
+    }
+
     pub fn update_animations(&mut self) -> HashMap<ClientId, Client> {
         for f in self.fullscreen_surfaces.iter_mut() {
             if let Some(start) = f.start_at.as_ref() {

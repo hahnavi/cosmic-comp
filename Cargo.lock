@@ -466,7 +466,7 @@ dependencies = [
 [[package]]
 name = "build_helpers"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "cfg_aliases",
 ]
@@ -800,6 +800,7 @@ dependencies = [
  "libsystemd",
  "log-panics",
  "logind-zbus",
+ "mimalloc",
  "ordered-float",
  "parking_lot",
  "png 0.18.1",
@@ -847,7 +848,7 @@ dependencies = [
 [[package]]
 name = "cosmic-config"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "atomicwrites",
  "calloop",
@@ -868,7 +869,7 @@ dependencies = [
 [[package]]
 name = "cosmic-config-derive"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "quote",
  "syn",
@@ -969,7 +970,7 @@ dependencies = [
 [[package]]
 name = "cosmic-theme"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "almost",
  "configparser",
@@ -1178,7 +1179,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1492,7 +1493,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2227,7 +2228,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "build_helpers",
  "dnd",
@@ -2247,7 +2248,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "bitflags 2.13.2",
  "build_helpers",
@@ -2272,7 +2273,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2282,7 +2283,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "futures",
  "iced_core",
@@ -2295,7 +2296,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -2316,7 +2317,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2325,7 +2326,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -2337,7 +2338,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "build_helpers",
  "bytes",
@@ -2352,7 +2353,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2369,7 +2370,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "as-raw-xcb-connection",
  "bitflags 2.13.2",
@@ -2400,7 +2401,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.2"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "build_helpers",
  "dnd",
@@ -2684,7 +2685,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2807,7 +2808,7 @@ version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a1886916523694cd6ea3d175f03a1e5010699a2a4cc13696d83d7bea1d80638"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2881,7 +2882,7 @@ checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
 [[package]]
 name = "libcosmic"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?rev=da348afff6df0250851b4a5bef4c86537be1e5be#da348afff6df0250851b4a5bef4c86537be1e5be"
+source = "git+https://github.com/hahnavi/libcosmic.git?rev=cd09b328fcb66332f610b719f299719d6e8560a5#cd09b328fcb66332f610b719f299719d6e8560a5"
 dependencies = [
  "apply",
  "auto_enums",
@@ -2970,6 +2971,15 @@ name = "libm"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+
+[[package]]
+name = "libmimalloc-sys"
+version = "0.1.49"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "libredox"
@@ -3240,6 +3250,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mimalloc"
+version = "0.1.52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862"
+dependencies = [
+ "libmimalloc-sys",
+]
+
+[[package]]
 name = "mime"
 version = "0.1.0"
 source = "git+https://github.com/pop-os/window_clipboard.git?tag=sctk-0.20#f68595ee0e62fbd6589f4709b5aaa5c3c7ea5f6c"
@@ -3425,7 +3444,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4479,7 +4498,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4492,7 +4511,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5079,7 +5098,7 @@ dependencies = [
  "getrandom 0.4.1",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6098,7 +6117,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -183,11 +183,37 @@ impl<P: Program> IcedProgram for ProgramWrapper<P> {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct IcedBuffer {
+    buffer: MemoryRenderBuffer,
+    old_layers: Option<(Vec<Layer>, Color)>,
+    clip_mask: Option<tiny_skia::Mask>,
+    seen_revision: u64,
+}
+
+impl IcedBuffer {
+    fn new(buffer_size: Size<i32, BufferCoords>) -> Self {
+        Self {
+            buffer: MemoryRenderBuffer::new(
+                Fourcc::Argb8888,
+                buffer_size,
+                1,
+                Transform::Normal,
+                None,
+            ),
+            old_layers: None,
+            clip_mask: None,
+            seen_revision: 0,
+        }
+    }
+}
+
 pub(crate) struct IcedElementInternal<P: Program + Send + 'static> {
     // draw buffer
     additional_scale: f64,
     outputs: HashSet<Output>,
-    buffers: HashMap<OrderedFloat<f64>, (MemoryRenderBuffer, Option<(Vec<Layer>, Color)>)>,
+    buffers: HashMap<OrderedFloat<f64>, IcedBuffer>,
+    layers_revision: u64,
     pending_realloc: bool,
     blur: BlurState,
 
@@ -242,6 +268,7 @@ impl<P: Program + Send + Clone + 'static> Clone for IcedElementInternal<P> {
             additional_scale: self.additional_scale,
             outputs: self.outputs.clone(),
             buffers: self.buffers.clone(),
+            layers_revision: self.layers_revision,
             pending_realloc: self.pending_realloc,
             blur: BlurState::default(),
             size: self.size,
@@ -330,6 +357,7 @@ impl<P: Program + Send + 'static> IcedElement<P> {
             additional_scale: 1.0,
             outputs: HashSet::new(),
             buffers: HashMap::new(),
+            layers_revision: 0,
             pending_realloc: false,
             blur: BlurState::default(),
             size,
@@ -420,9 +448,10 @@ impl<P: Program + Send + 'static> IcedElement<P> {
 
     pub fn force_redraw(&self) {
         let mut internal = self.0.lock().unwrap();
-        for (_buffer, old_primitives) in internal.buffers.values_mut() {
-            *old_primitives = None;
+        for buffer in internal.buffers.values_mut() {
+            buffer.old_layers = None;
         }
+        internal.layers_revision = internal.layers_revision.wrapping_add(1);
     }
 
     pub fn current_size(&self) -> Size<i32, Logical> {
@@ -482,6 +511,8 @@ impl<P: Program + Send + 'static> IcedElementInternal<P> {
                 &mut NullClipboard,
             )
             .1;
+
+        self.layers_revision = self.layers_revision.wrapping_add(1);
 
         if let Some(action) = actions
             && let Some(t) = into_stream(action)
@@ -998,17 +1029,17 @@ impl<P: Program + Send + 'static> SpaceElement for IcedElement<P> {
         let scale = output.current_scale().fractional_scale() * internal.additional_scale;
 
         let internal_size = internal.size;
-        internal.buffers.entry(OrderedFloat(scale)).or_insert({
-            let buffer_size = internal_size
-                .to_f64()
-                .to_buffer(scale, Transform::Normal)
-                .to_i32_round();
+        internal
+            .buffers
+            .entry(OrderedFloat(scale))
+            .or_insert_with(|| {
+                let buffer_size = internal_size
+                    .to_f64()
+                    .to_buffer(scale, Transform::Normal)
+                    .to_i32_round();
 
-            (
-                MemoryRenderBuffer::new(Fourcc::Argb8888, buffer_size, 1, Transform::Normal, None),
-                None,
-            )
-        });
+                IcedBuffer::new(buffer_size)
+            });
 
         internal.outputs.insert(output.clone());
         std::mem::drop(internal);
@@ -1050,19 +1081,9 @@ impl<P: Program + Send + 'static> SpaceElement for IcedElement<P> {
                 .to_f64()
                 .to_buffer(*scale, Transform::Normal)
                 .to_i32_round();
-            internal_ref.buffers.insert(
-                scale,
-                (
-                    MemoryRenderBuffer::new(
-                        Fourcc::Argb8888,
-                        buffer_size,
-                        1,
-                        Transform::Normal,
-                        None,
-                    ),
-                    None,
-                ),
-            );
+            internal_ref
+                .buffers
+                .insert(scale, IcedBuffer::new(buffer_size));
         }
         internal.update(false);
     }
@@ -1086,19 +1107,26 @@ impl<P: Program + Send + 'static> IcedElement<P> {
         // makes partial borrows easier
         let internal_ref = &mut *internal;
         if std::mem::replace(&mut internal_ref.pending_realloc, false) {
-            for (scale, (buffer, old_primitives)) in internal_ref.buffers.iter_mut() {
+            for (scale, buffer) in internal_ref.buffers.iter_mut() {
                 let buffer_size = internal_ref
                     .size
                     .to_f64()
                     .to_buffer(**scale, Transform::Normal)
                     .to_i32_round();
-                buffer.render().resize(buffer_size);
-                *old_primitives = None;
+                buffer.buffer.render().resize(buffer_size);
+                buffer.old_layers = None;
+                buffer.clip_mask = None;
             }
         }
 
         scale = scale * internal_ref.additional_scale;
-        if let Some((buffer, old_layers)) = internal_ref.buffers.get_mut(&OrderedFloat(scale.x)) {
+        if let Some(IcedBuffer {
+            buffer,
+            old_layers,
+            clip_mask,
+            seen_revision,
+        }) = internal_ref.buffers.get_mut(&OrderedFloat(scale.x))
+        {
             let size: Size<i32, BufferCoords> = internal_ref
                 .size
                 .to_f64()
@@ -1106,8 +1134,11 @@ impl<P: Program + Send + 'static> IcedElement<P> {
                 .to_i32_round();
             if size.w > 0 && size.h > 0 {
                 let state_ref = &internal_ref.state;
-                let mut clip_mask = tiny_skia::Mask::new(size.w as u32, size.h as u32).unwrap();
                 let theme = &internal_ref.theme;
+                let layers_unchanged = *seen_revision == internal_ref.layers_revision
+                    && old_layers.as_ref().is_some_and(|(_, last_color)| {
+                        *last_color == state_ref.program().program.background_color(theme)
+                    });
 
                 _ = buffer.render().draw(|buf| {
                     let mut pixels =
@@ -1118,50 +1149,69 @@ impl<P: Program + Send + 'static> IcedElement<P> {
                     let bounds = IcedSize::new(size.w as u32, size.h as u32);
                     let viewport = Viewport::with_physical_size(bounds, scale.x);
                     let scale_x = scale.x as f32;
-                    let current_layers = internal_ref.renderer.layers();
-                    let mut damage: Vec<_> = old_layers
-                        .as_ref()
-                        .and_then(|(last_primitives, last_color)| {
-                            (last_color == &background_color).then(|| {
-                                damage::diff(
-                                    last_primitives,
-                                    current_layers,
-                                    |_| {
-                                        vec![cosmic::iced::Rectangle::new(
-                                            cosmic::iced::Point::default(),
-                                            viewport.logical_size(),
-                                        )]
-                                    },
-                                    Layer::damage,
-                                )
-                                .into_iter()
-                                .filter(|d| {
-                                    let width = d.width as u32;
-                                    let height = d.height as u32;
+                    let mut damage: Vec<_> = if layers_unchanged {
+                        Vec::new()
+                    } else {
+                        let current_layers = internal_ref.renderer.layers();
+                        old_layers
+                            .as_ref()
+                            .and_then(|(last_primitives, last_color)| {
+                                (last_color == &background_color).then(|| {
+                                    damage::diff(
+                                        last_primitives,
+                                        current_layers,
+                                        |_| {
+                                            vec![cosmic::iced::Rectangle::new(
+                                                cosmic::iced::Point::default(),
+                                                viewport.logical_size(),
+                                            )]
+                                        },
+                                        Layer::damage,
+                                    )
+                                    .into_iter()
+                                    .filter(|d| {
+                                        let width = d.width as u32;
+                                        let height = d.height as u32;
 
-                                    width > 1 && height > 1
+                                        width > 1 && height > 1
+                                    })
+                                    .collect()
                                 })
-                                .collect()
                             })
-                        })
-                        .unwrap_or_else(|| {
-                            vec![cosmic::iced::Rectangle::with_size(viewport.logical_size())]
-                        });
-                    damage = damage::group(
-                        damage,
-                        cosmic::iced::Rectangle::with_size(viewport.logical_size()),
-                    );
+                            .unwrap_or_else(|| {
+                                vec![cosmic::iced::Rectangle::with_size(viewport.logical_size())]
+                            })
+                    };
+                    if !layers_unchanged {
+                        damage = damage::group(
+                            damage,
+                            cosmic::iced::Rectangle::with_size(viewport.logical_size()),
+                        );
+                    }
 
                     if !damage.is_empty() {
-                        *old_layers = Some((current_layers.to_vec(), background_color));
+                        *old_layers =
+                            Some((internal_ref.renderer.layers().to_vec(), background_color));
 
+                        let mut mask = match clip_mask.take() {
+                            Some(mask)
+                                if mask.width() == size.w as u32
+                                    && mask.height() == size.h as u32 =>
+                            {
+                                mask
+                            }
+                            _ => tiny_skia::Mask::new(size.w as u32, size.h as u32)
+                                .expect("Failed to create clip mask"),
+                        };
+                        mask.clear();
                         internal_ref.renderer.draw(
                             &mut pixels,
-                            &mut clip_mask,
+                            &mut mask,
                             &viewport,
                             &damage,
                             background_color,
                         );
+                        *clip_mask = Some(mask);
                     }
 
                     let damage = damage
@@ -1185,10 +1235,15 @@ impl<P: Program + Send + 'static> IcedElement<P> {
                     Result::<_, ()>::Ok(damage)
                 });
 
-                // trim the shape cache
-                {
-                    let mut font_system = font_system().write().unwrap();
-                    font_system.raw().shape_run_cache.trim(1024);
+                if !layers_unchanged {
+                    // remember that this frame consumed the current layers
+                    *seen_revision = internal_ref.layers_revision;
+
+                    // trim the shape cache
+                    {
+                        let mut font_system = font_system().write().unwrap();
+                        font_system.raw().shape_run_cache.trim(1024);
+                    }
                 }
             }
 

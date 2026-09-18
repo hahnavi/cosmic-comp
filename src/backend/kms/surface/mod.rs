@@ -97,7 +97,7 @@ use std::{
         mpsc::{Receiver, SyncSender},
     },
     thread::JoinHandle,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 mod timings;
@@ -107,6 +107,8 @@ use super::{drm_helpers, render::gles::GbmGlowBackend};
 
 #[cfg(feature = "debug")]
 use smithay_egui::EguiState;
+
+const TEXTURE_CLEANUP_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Debug)]
 pub struct Surface {
@@ -142,6 +144,7 @@ pub struct SurfaceThreadState {
     timings: Timings,
     frame_callback_seq: usize,
     thread_sender: Sender<SurfaceCommand>,
+    queued_render_animations: bool,
 
     output: Output,
     mirroring: Option<Output>,
@@ -157,6 +160,8 @@ pub struct SurfaceThreadState {
     egui: EguiState,
 
     last_sequence: Option<u32>,
+    /// Last time texture caches were cleaned up; cleanup iterates every device and is throttled to keep the per-frame driver work down.
+    last_texture_cleanup: Instant,
     /// Tracy frame that goes from vblank to vblank.
     vblank_frame: Option<tracy_client::Frame>,
     /// Frame name for the VBlank frame.
@@ -216,6 +221,7 @@ pub enum ThreadCommand {
     UpdateScreenFilter(ScreenFilter),
     VBlank(Option<DrmEventMetadata>),
     ScheduleRender,
+    ScheduleRenderAnimations,
     AdaptiveSyncAvailable(SyncSender<Result<VrrSupport>>),
     UseAdaptiveSync(AdaptiveSync),
     AllowFrameFlags(bool, FrameFlags),
@@ -392,6 +398,14 @@ impl Surface {
         }
     }
 
+    pub fn schedule_render_animations(&self) {
+        if self.dpms {
+            let _ = self
+                .thread_command
+                .send(ThreadCommand::ScheduleRenderAnimations);
+        }
+    }
+
     pub fn set_mirroring(&mut self, output: Option<Output>) {
         let _ = self
             .thread_command
@@ -541,6 +555,7 @@ fn surface_thread(
         timings: Timings::new(None, None, false, target_node),
         frame_callback_seq: 0,
         thread_sender,
+        queued_render_animations: false,
 
         output,
         mirroring: None,
@@ -554,6 +569,7 @@ fn surface_thread(
         egui,
 
         last_sequence: None,
+        last_texture_cleanup: Instant::now(),
         vblank_frame: None,
         vblank_frame_name,
         time_since_presentation_plot_name,
@@ -592,7 +608,14 @@ fn surface_thread(
                     return;
                 }
 
-                state.queue_redraw(false);
+                state.queue_redraw(false, false);
+            }
+            Event::Msg(ThreadCommand::ScheduleRenderAnimations) => {
+                if !startup_done.load(Ordering::SeqCst) {
+                    return;
+                }
+
+                state.queue_redraw(false, true);
             }
             Event::Msg(ThreadCommand::UpdateMirroring(mirroring_output)) => {
                 state.update_mirroring(mirroring_output);
@@ -886,7 +909,7 @@ impl SurfaceThreadState {
                 .non_continuous_frame(self.vblank_frame_name);
             self.vblank_frame = Some(vblank_frame);
 
-            self.queue_redraw(false);
+            self.queue_redraw(false, !redraw_needed);
         }
         self.send_frame_callbacks();
     }
@@ -908,12 +931,12 @@ impl SurfaceThreadState {
         self.frame_callback_seq = self.frame_callback_seq.wrapping_add(1);
 
         if force || self.shell.read().animations_going() {
-            self.queue_redraw(false);
+            self.queue_redraw(false, !force);
         }
         self.send_frame_callbacks();
     }
 
-    fn queue_redraw(&mut self, force: bool) {
+    fn queue_redraw(&mut self, force: bool, animations: bool) {
         let Some(_compositor) = self.compositor.as_mut() else {
             return;
         };
@@ -927,19 +950,51 @@ impl SurfaceThreadState {
         }
 
         if !force {
-            match &self.state {
-                QueueState::Idle | QueueState::WaitingForEstimatedVBlank(_) => {}
+            match mem::replace(&mut self.state, QueueState::Idle) {
+                QueueState::Idle => {}
+                QueueState::WaitingForEstimatedVBlank(estimated_vblank) => {
+                    self.state = QueueState::WaitingForEstimatedVBlank(estimated_vblank);
+                }
 
-                // A redraw is already queued.
-                QueueState::Queued(_) | QueueState::WaitingForEstimatedVBlankAndQueued { .. } => {
+                // Re-arm a queued redraw without the animation cap when real damage arrives.
+                QueueState::Queued(token) => {
+                    if self.queued_render_animations && !animations {
+                        self.loop_handle.remove(token);
+                    } else {
+                        self.state = QueueState::Queued(token);
+                        return;
+                    }
+                }
+                QueueState::WaitingForEstimatedVBlankAndQueued {
+                    estimated_vblank,
+                    queued_render,
+                } => {
+                    self.state = QueueState::WaitingForEstimatedVBlankAndQueued {
+                        estimated_vblank,
+                        queued_render,
+                    };
                     return;
                 }
-                _ => unreachable!(),
-            };
+                QueueState::WaitingForVBlank { .. } => unreachable!(),
+            }
         }
 
-        let estimated_presentation = self.timings.next_presentation_time(&self.clock);
-        let render_start = self.timings.next_render_time(&self.clock);
+        let refresh_interval = self.timings.refresh_interval();
+        let estimated_presentation = if animations && !force && refresh_interval > Duration::ZERO {
+            match crate::utils::power::animation_frame_interval() {
+                Some(interval) if interval > refresh_interval => self
+                    .timings
+                    .next_presentation_time_capped(&self.clock, interval),
+                _ => self.timings.next_presentation_time(&self.clock),
+            }
+        } else {
+            self.timings.next_presentation_time(&self.clock)
+        };
+        let render_start = self
+            .timings
+            .render_time_for_presentation(estimated_presentation);
+        self.queued_render_animations =
+            animations && !force && estimated_presentation > Duration::ZERO;
 
         let timer = if render_start.is_zero() {
             trace!("Running late for frame.");
@@ -955,7 +1010,7 @@ impl SurfaceThreadState {
                 if let Err(err) = state.redraw(estimated_presentation) {
                     let name = state.output.name();
                     warn!(?name, "Failed to submit rendering: {:?}", err);
-                    state.queue_redraw(true);
+                    state.queue_redraw(true, false);
                 }
                 TimeoutAction::Drop
             })
@@ -1408,8 +1463,11 @@ impl SurfaceThreadState {
             }
         }
 
-        for device in self.api.devices_mut()? {
-            device.renderer_mut().cleanup_texture_cache()?;
+        if self.last_texture_cleanup.elapsed() >= TEXTURE_CLEANUP_INTERVAL {
+            self.last_texture_cleanup = Instant::now();
+            for device in self.api.devices_mut()? {
+                device.renderer_mut().cleanup_texture_cache()?;
+            }
         }
 
         Ok(())

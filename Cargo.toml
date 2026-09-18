@@ -17,7 +17,7 @@ cosmic-comp-config = { path = "cosmic-comp-config", features = [
     "libdisplay-info",
     "output",
 ] }
-cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be", features = [
+cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", rev = "cd09b328fcb66332f610b719f299719d6e8560a5", features = [
     "calloop",
     "macro",
 ] }
@@ -39,11 +39,11 @@ i18n-embed = { version = "0.16", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.10"
-iced_tiny_skia = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be" }
-iced_graphics = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be", features = ["geometry"] }
+iced_tiny_skia = { git = "https://github.com/hahnavi/libcosmic.git", rev = "cd09b328fcb66332f610b719f299719d6e8560a5" }
+iced_graphics = { git = "https://github.com/hahnavi/libcosmic.git", rev = "cd09b328fcb66332f610b719f299719d6e8560a5", features = ["geometry"] }
 indexmap = "2.13"
 keyframe = "1.1.1"
-libcosmic = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be", default-features = false, features = [
+libcosmic = { git = "https://github.com/hahnavi/libcosmic.git", rev = "cd09b328fcb66332f610b719f299719d6e8560a5", default-features = false, features = [
     "tiny-skia",
 ] }
 libsystemd = { version = "0.7", optional = true }
@@ -84,6 +84,7 @@ rand = "0.10"
 clap_lex = "1.0"
 parking_lot = "0.12.5"
 logind-zbus = { version = "5.3.2", optional = true }
+mimalloc = "0.1"
 futures-executor = { version = "0.3.32" }
 futures-util = "0.3.32"
 glam = { version = "0.33", default-features = false, features = ["std"] }
@@ -142,14 +143,16 @@ debug = true
 inherits = "release"
 
 [profile.release]
+codegen-units = 1
 lto = "fat"
+strip = "debuginfo"
 
 [patch."https://github.com/pop-os/cosmic-protocols"]
 cosmic-protocols = { git = "https://github.com/pop-os//cosmic-protocols", branch = "main" }
 
 [patch."https://github.com/pop-os/libcosmic"]
-cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be" }
-cosmic-theme = { git = "https://github.com/hahnavi/libcosmic.git", rev = "da348afff6df0250851b4a5bef4c86537be1e5be" }
+cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", rev = "cd09b328fcb66332f610b719f299719d6e8560a5" }
+cosmic-theme = { git = "https://github.com/hahnavi/libcosmic.git", rev = "cd09b328fcb66332f610b719f299719d6e8560a5" }
 
 [patch.crates-io]
 smithay = { git = "https://github.com/smithay/smithay.git", rev = "28c8e0fad905f3e7d01c2446fb60d26659071684" }
