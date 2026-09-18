@@ -2353,6 +2353,17 @@ impl Shell {
         clients
     }
 
+    pub fn animations_pending(&self) -> bool {
+        self.workspaces
+            .sets
+            .values()
+            .any(|set| set.sticky_layer.has_animations())
+            || self
+                .workspaces
+                .spaces()
+                .any(|workspace| workspace.animations_pending())
+    }
+
     pub fn set_overview_mode(
         &mut self,
         enabled: Option<Trigger>,

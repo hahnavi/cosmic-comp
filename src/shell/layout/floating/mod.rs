@@ -1412,6 +1412,10 @@ impl FloatingLayout {
         self.dirty.swap(false, Ordering::SeqCst) || !self.animations.is_empty()
     }
 
+    pub fn has_animations(&self) -> bool {
+        !self.animations.is_empty()
+    }
+
     pub fn update_animation_state(&mut self) {
         let was_empty = self.animations.is_empty();
         self.animations.retain(|_, anim| {

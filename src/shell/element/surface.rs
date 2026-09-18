@@ -911,7 +911,10 @@ impl CosmicSurface {
                         geometry,
                         scale,
                         alpha,
-                        false,
+                        // Popups can request a corner radius too; clip them to it
+                        // like windows, otherwise the requested radius is ignored
+                        // and the popup is drawn with square corners.
+                        true,
                         radii,
                         None,
                         blur_strength,

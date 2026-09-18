@@ -117,6 +117,14 @@ impl BlurShaders {
 
 type BlurTexture<T> = Mutex<Option<T>>;
 
+struct BlurOffTexture<T>(Mutex<Option<T>>);
+
+impl<T> Default for BlurOffTexture<T> {
+    fn default() -> Self {
+        Self(Mutex::new(None))
+    }
+}
+
 #[derive(Debug)]
 pub struct BlurState {
     pub id: Id,
@@ -407,15 +415,35 @@ where
             texture_entry.as_ref().unwrap(),
         )
         .unwrap();
-        let mut off_texture = renderer
-            .as_mut()
-            .create_buffer(Fourcc::Abgr8888, tex_size)
-            .map_err(R::from_gles_error)?;
+
+        let off_texture_ref =
+            cache.get_or_insert_threadsafe(BlurOffTexture::<R::TextureId>::default);
+        let mut off_texture_entry = off_texture_ref.0.lock().unwrap();
+        if off_texture_entry
+            .as_ref()
+            .is_some_and(|tex: &R::TextureId| {
+                tex.size() != tex_size
+                    || R::tex_to_gl(&renderer.as_ref().context_id(), tex).is_none()
+            })
+        {
+            off_texture_entry.take();
+        }
+        if off_texture_entry.is_none() {
+            let gl_texture = renderer
+                .as_mut()
+                .create_buffer(Fourcc::Abgr8888, tex_size)
+                .map_err(R::from_gles_error)?;
+            *off_texture_entry = Some(R::tex_from_gl(&renderer.as_ref().context_id(), gl_texture));
+        }
+        let mut off_texture = R::tex_to_gl(
+            &renderer.as_ref().context_id(),
+            off_texture_entry.as_ref().unwrap(),
+        )
+        .unwrap();
         std::mem::drop(renderer);
 
-        let sync = blit_from_active_fb(gles_frame, src, dst, transform, &mut texture)
+        let _ = blit_from_active_fb(gles_frame, src, dst, transform, &mut texture)
             .map_err(R::from_gles_error)?;
-        gles_frame.wait(&sync).map_err(R::from_gles_error)?;
 
         let mut textures = [&mut texture, &mut off_texture];
         render_blur(
@@ -595,9 +623,7 @@ fn render_blur(
         )?;
         frame.clear(
             Color32F::new(0., 0., 0., 0.),
-            &[Rectangle::from_size(
-                tex_size.to_logical(1, Transform::Normal).to_physical(1),
-            )],
+            &[Rectangle::from_size(target_tex_size)],
         )?;
         frame.with_context(|gl| unsafe {
             gl.TexParameteri(
@@ -629,9 +655,8 @@ fn render_blur(
             gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_WRAP_S, ffi::REPEAT as i32);
             gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_WRAP_T, ffi::REPEAT as i32);
         })?;
-        let sync = frame.finish()?;
+        let _ = frame.finish()?;
         std::mem::drop(fb);
-        renderer.wait(&sync)?;
 
         textures.swap(0, 1);
     }
@@ -658,9 +683,7 @@ fn render_blur(
         )?;
         frame.clear(
             Color32F::new(0., 0., 0., 0.),
-            &[Rectangle::from_size(
-                tex_size.to_logical(1, Transform::Normal).to_physical(1),
-            )],
+            &[Rectangle::from_size(target_tex_size)],
         )?;
         frame.with_context(|gl| unsafe {
             gl.TexParameteri(
@@ -692,9 +715,8 @@ fn render_blur(
             gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_WRAP_S, ffi::REPEAT as i32);
             gl.TexParameteri(ffi::TEXTURE_2D, ffi::TEXTURE_WRAP_T, ffi::REPEAT as i32);
         })?;
-        let sync = frame.finish()?;
+        let _ = frame.finish()?;
         std::mem::drop(fb);
-        renderer.wait(&sync)?;
 
         textures.swap(0, 1);
     }

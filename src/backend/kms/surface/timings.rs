@@ -325,6 +325,34 @@ impl Timings {
         }
     }
 
+    pub fn next_presentation_time_capped(
+        &self,
+        clock: &Clock<Monotonic>,
+        min_interval: Duration,
+    ) -> Duration {
+        let now: Duration = clock.now().into();
+
+        let Some(refresh_interval_ns) = self.refresh_interval_ns else {
+            return Duration::ZERO;
+        };
+        let Some(last_presentation_time): Option<Duration> = self
+            .previous_frames
+            .back()
+            .map(|frame| frame.presentation_presented.into())
+        else {
+            return Duration::ZERO;
+        };
+
+        let effective_interval_ns = min_interval.as_nanos() as u64;
+        debug_assert!(effective_interval_ns > refresh_interval_ns.get());
+        let since_last = now.saturating_sub(last_presentation_time);
+        let since_last_ns =
+            since_last.as_secs() * 1_000_000_000 + u64::from(since_last.subsec_nanos());
+        let to_next_ns = (since_last_ns / effective_interval_ns + 1) * effective_interval_ns;
+
+        last_presentation_time + Duration::from_nanos(to_next_ns) - now
+    }
+
     pub fn past_min_render_time(&self, clock: &Clock<Monotonic>) -> bool {
         let now: Duration = clock.now().into();
         let Some(min_refresh_interval_ns) = self.min_refresh_interval_ns else {
@@ -364,6 +392,11 @@ impl Timings {
     }
 
     pub fn next_render_time(&self, clock: &Clock<Monotonic>) -> Duration {
+        let estimated_presentation_time = self.next_presentation_time(clock);
+        self.render_time_for_presentation(estimated_presentation_time)
+    }
+
+    pub fn render_time_for_presentation(&self, estimated_presentation_time: Duration) -> Duration {
         let Some(refresh_interval) = self.refresh_interval_ns else {
             return Duration::ZERO; // we don't know what to expect, so render immediately.
         };
@@ -371,7 +404,6 @@ impl Timings {
         const MIN_MARGIN: Duration = Duration::from_millis(3);
         let baseline = MIN_MARGIN.max(Duration::from_nanos(refresh_interval.get() / 2));
 
-        let estimated_presentation_time = self.next_presentation_time(clock);
         if estimated_presentation_time.is_zero() {
             return Duration::ZERO;
         }

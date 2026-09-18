@@ -9,6 +9,8 @@ use std::{
     time::Instant,
 };
 
+use smallvec::SmallVec;
+
 #[cfg(feature = "debug")]
 use crate::debug::fps_ui;
 use crate::{
@@ -639,7 +641,11 @@ where
     let mut debug_elements = {
         let output_geo = output.geometry();
         let shell_guard = shell.read();
-        let seats = shell_guard.seats.iter().cloned().collect::<Vec<_>>();
+        let seats = shell_guard
+            .seats
+            .iter()
+            .cloned()
+            .collect::<SmallVec<[_; 4]>>();
         let debug_active = shell_guard.debug_active;
         std::mem::drop(shell_guard);
         let scale = output.current_scale().fractional_scale();
@@ -680,6 +686,7 @@ where
         .zip(previous_idx)
         .map(|((w, start), idx)| (w.handle, idx, start));
     let workspace = (workspace.handle, idx);
+    let zoom_state = shell_guard.zoom_state().cloned();
 
     std::mem::drop(shell_guard);
 
@@ -688,7 +695,6 @@ where
     } else {
         ElementFilter::All
     };
-    let zoom_state = shell.read().zoom_state().cloned();
 
     #[allow(unused_mut)]
     let workspace_elements = workspace_elements(
@@ -737,7 +743,11 @@ where
     let mut elements = Vec::<CosmicElement<R>>::new();
 
     let shell_ref = shell.read();
-    let seats = shell_ref.seats.iter().cloned().collect::<Vec<_>>();
+    let seats = shell_ref
+        .seats
+        .iter()
+        .cloned()
+        .collect::<SmallVec<[_; 4]>>();
     if seats.is_empty() {
         return Ok(Vec::new());
     }

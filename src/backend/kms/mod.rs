@@ -2,7 +2,7 @@
 
 use crate::{
     config::{CompOutputConfig, ScreenFilter},
-    shell::Shell,
+    shell::{SeatExt, Shell},
     state::BackendData,
     utils::{env::dev_var, global::remove_global_with_timer, prelude::*},
     wayland::protocols::{drm::WlDrmState, output_power::OutputPowerState},
@@ -191,6 +191,23 @@ pub fn init_backend(
     Ok(())
 }
 
+fn cursor_motion_device<B: smithay::backend::input::InputBackend>(
+    event: &InputEvent<B>,
+) -> Option<B::Device> {
+    #[allow(unused_imports)]
+    use smithay::backend::input::Event as _;
+    match event {
+        InputEvent::PointerMotion { event } => Some(event.device()),
+        InputEvent::PointerMotionAbsolute { event } => Some(event.device()),
+        InputEvent::TouchDown { event } => Some(event.device()),
+        InputEvent::TouchMotion { event } => Some(event.device()),
+        InputEvent::TabletToolAxis { event } => Some(event.device()),
+        InputEvent::TabletToolProximity { event } => Some(event.device()),
+        InputEvent::TabletToolTip { event } => Some(event.device()),
+        _ => None,
+    }
+}
+
 fn init_libinput(
     dh: &DisplayHandle,
     session: &LibSeatSession,
@@ -215,10 +232,40 @@ fn init_libinput(
             state.backend.kms().input_devices.remove(&*device.name());
         }
 
+        let motion_device = cursor_motion_device(&event);
+        let active_before = motion_device.as_ref().and_then(|device| {
+            state
+                .common
+                .shell
+                .read()
+                .seats
+                .for_device(device, &crate::input::InputBackendId::Normal)
+                .map(|seat| seat.active_output())
+        });
+
         state.process_input_event(event, crate::input::InputBackendId::Normal);
 
-        for output in state.common.shell.read().outputs() {
-            state.backend.kms().schedule_render(output);
+        match (active_before, motion_device) {
+            (Some(before), Some(device)) => {
+                state.backend.kms().schedule_render(&before);
+                let after = state
+                    .common
+                    .shell
+                    .read()
+                    .seats
+                    .for_device(&device, &crate::input::InputBackendId::Normal)
+                    .map(|seat| seat.active_output());
+                if let Some(after) = after
+                    && after != before
+                {
+                    state.backend.kms().schedule_render(&after);
+                }
+            }
+            _ => {
+                for output in state.common.shell.read().outputs() {
+                    state.backend.kms().schedule_render(output);
+                }
+            }
         }
     })
     .map_err(|err| err.error)
@@ -720,6 +767,17 @@ impl KmsState {
         }
     }
 
+    pub fn schedule_animation_render(&mut self, output: &Output) {
+        for surface in self
+            .drm_devices
+            .values()
+            .flat_map(|d| d.inner.surfaces.values())
+            .filter(|s| s.output == *output || s.output.mirroring().is_some_and(|o| &o == output))
+        {
+            surface.schedule_render_animations();
+        }
+    }
+
     pub fn target_node_for_output(&self, output: &Output) -> Option<DrmNode> {
         self.drm_devices
             .values()
@@ -821,6 +879,17 @@ impl KmsGuard<'_> {
             .filter(|s| s.output == *output || s.output.mirroring().is_some_and(|o| &o == output))
         {
             surface.schedule_render();
+        }
+    }
+
+    pub fn schedule_animation_render(&mut self, output: &Output) {
+        for surface in self
+            .drm_devices
+            .values()
+            .flat_map(|d| d.inner.surfaces.values())
+            .filter(|s| s.output == *output || s.output.mirroring().is_some_and(|o| &o == output))
+        {
+            surface.schedule_render_animations();
         }
     }
 
