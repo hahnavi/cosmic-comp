@@ -2198,23 +2198,24 @@ where
         frame: &mut R::Frame<'_, '_>,
         src: Rectangle<f64, BufferCoords>,
         dst: Rectangle<i32, Physical>,
+        damage: &[Rectangle<i32, Physical>],
         cache: &UserDataMap,
     ) -> Result<(), R::Error> {
         match self {
             WorkspaceRenderElement::OverrideRedirect(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
             WorkspaceRenderElement::LowerLayerShell(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
             WorkspaceRenderElement::Fullscreen(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
             WorkspaceRenderElement::FullscreenPopup(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
             WorkspaceRenderElement::Window(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
             WorkspaceRenderElement::Backdrop(elem) => {
                 RenderElement::<GlowRenderer>::capture_framebuffer(
@@ -2222,6 +2223,7 @@ where
                     R::glow_frame_mut(frame),
                     src,
                     dst,
+                    damage,
                     cache,
                 )
                 .map_err(R::from_gles_error)

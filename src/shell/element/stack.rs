@@ -2284,11 +2284,12 @@ where
         frame: &mut R::Frame<'_, '_>,
         src: Rectangle<f64, Buffer>,
         dst: Rectangle<i32, Physical>,
+        damage: &[Rectangle<i32, Physical>],
         cache: &UserDataMap,
     ) -> Result<(), <R>::Error> {
         match self {
             CosmicStackRenderElement::Header(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
             CosmicStackRenderElement::Shadow(elem) | CosmicStackRenderElement::Border(elem) => {
                 RenderElement::<GlowRenderer>::capture_framebuffer(
@@ -2296,12 +2297,13 @@ where
                     R::glow_frame_mut(frame),
                     src,
                     dst,
+                    damage,
                     cache,
                 )
                 .map_err(R::from_gles_error)
             }
             CosmicStackRenderElement::Window(elem) => {
-                elem.capture_framebuffer(frame, src, dst, cache)
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
             }
         }
     }

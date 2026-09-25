@@ -305,29 +305,30 @@ where
         frame: &mut <R>::Frame<'_, '_>,
         src: Rectangle<f64, BufferCoords>,
         dst: Rectangle<i32, Physical>,
+        damage: &[Rectangle<i32, Physical>],
         cache: &UserDataMap,
     ) -> Result<(), <R>::Error> {
         match self {
-            CosmicElement::Workspace(elem) => elem.capture_framebuffer(frame, src, dst, cache),
-            CosmicElement::Cursor(elem) => elem.capture_framebuffer(frame, src, dst, cache),
-            CosmicElement::Dnd(elem) => elem.capture_framebuffer(frame, src, dst, cache),
-            CosmicElement::MoveGrab(elem) => elem.capture_framebuffer(frame, src, dst, cache),
+            CosmicElement::Workspace(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
+            CosmicElement::Cursor(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
+            CosmicElement::Dnd(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
+            CosmicElement::MoveGrab(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
             CosmicElement::Postprocess(elem) => {
                 let glow_frame = R::glow_frame_mut(frame);
                 RenderElement::<GlowRenderer>::capture_framebuffer(
-                    elem, glow_frame, src, dst, cache,
+                    elem, glow_frame, src, dst, damage, cache,
                 )
                 .map_err(R::from_gles_error)
             }
-            CosmicElement::Zoom(elem) => elem.capture_framebuffer(frame, src, dst, cache),
+            CosmicElement::Zoom(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
             CosmicElement::Damage(elem) => {
-                RenderElement::<R>::capture_framebuffer(elem, frame, src, dst, cache)
+                RenderElement::<R>::capture_framebuffer(elem, frame, src, dst, damage, cache)
             }
             #[cfg(feature = "debug")]
             CosmicElement::Egui(elem) => {
                 let glow_frame = R::glow_frame_mut(frame);
                 RenderElement::<GlowRenderer>::capture_framebuffer(
-                    elem, glow_frame, src, dst, cache,
+                    elem, glow_frame, src, dst, damage, cache,
                 )
                 .map_err(R::from_gles_error)
             }
