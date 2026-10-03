@@ -22,9 +22,9 @@ pub(crate) fn active_window_hint(theme: &Theme) -> palette::Srgba {
 
 pub fn watch_theme(handle: LoopHandle<'_, State>) -> Result<(), cosmic_config::Error> {
     let (ping_tx, ping_rx) = calloop::ping::make_ping().unwrap();
-    let config_mode_helper = ThemeMode::config()?;
-    let config_dark_helper = Theme::dark_config()?;
-    let config_light_helper = Theme::light_config()?;
+    let _ = ThemeMode::config()?;
+    let _ = Theme::dark_config()?;
+    let _ = Theme::light_config()?;
 
     if let Err(e) = handle.insert_source(ping_rx, move |_, _, state| {
         let new_theme = cosmic::theme::system_preference();
@@ -43,21 +43,49 @@ pub fn watch_theme(handle: LoopHandle<'_, State>) -> Result<(), cosmic_config::E
         tracing::error!("{e}");
     };
 
-    let ping_tx_clone = ping_tx.clone();
-    let theme_watcher_mode = config_mode_helper.watch(move |_, _keys| {
-        ping_tx_clone.ping();
-    })?;
-    let ping_tx_clone = ping_tx.clone();
-    let theme_watcher_light = config_light_helper.watch(move |_, _keys| {
-        ping_tx_clone.ping();
-    })?;
-    let theme_watcher_dark = config_dark_helper.watch(move |_, _keys| {
-        ping_tx.ping();
-    })?;
+    let cosmic_dir = xdg::BaseDirectories::with_prefix("cosmic")
+        .get_config_home()
+        .unwrap_or_else(|| std::path::PathBuf::from("/etc/cosmic"));
 
-    std::mem::forget(theme_watcher_dark);
-    std::mem::forget(theme_watcher_light);
-    std::mem::forget(theme_watcher_mode);
+    let ping_tx_clone = ping_tx.clone();
+    let cosmic_dir_clone = cosmic_dir.clone();
+    let mut watcher =
+        match notify::recommended_watcher(move |event_res: Result<notify::Event, notify::Error>| {
+            if let Ok(event) = event_res {
+                match &event.kind {
+                    notify::EventKind::Access(_)
+                    | notify::EventKind::Modify(notify::event::ModifyKind::Metadata(_)) => {}
+                    _ => {
+                        for path in &event.paths {
+                            if let Ok(rel) = path.strip_prefix(&cosmic_dir_clone) {
+                                if let Some(std::path::Component::Normal(app)) =
+                                    rel.components().next()
+                                {
+                                    if app.to_str().map_or(false, |s| {
+                                        s.starts_with("com.system76.CosmicTheme")
+                                    }) {
+                                        ping_tx_clone.ping();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }) {
+            Ok(w) => w,
+            Err(err) => {
+                tracing::warn!(?err, "Failed to create unified theme watcher");
+                return Ok(());
+            }
+        };
+
+    use notify::Watcher;
+    let _ = std::fs::create_dir_all(&cosmic_dir);
+    let _ = watcher.watch(&cosmic_dir, notify::RecursiveMode::Recursive);
+
+    std::mem::forget(watcher);
 
     Ok(())
 }

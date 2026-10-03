@@ -309,10 +309,14 @@ where
         cache: &UserDataMap,
     ) -> Result<(), <R>::Error> {
         match self {
-            CosmicElement::Workspace(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
+            CosmicElement::Workspace(elem) => {
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
+            }
             CosmicElement::Cursor(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
             CosmicElement::Dnd(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
-            CosmicElement::MoveGrab(elem) => elem.capture_framebuffer(frame, src, dst, damage, cache),
+            CosmicElement::MoveGrab(elem) => {
+                elem.capture_framebuffer(frame, src, dst, damage, cache)
+            }
             CosmicElement::Postprocess(elem) => {
                 let glow_frame = R::glow_frame_mut(frame);
                 RenderElement::<GlowRenderer>::capture_framebuffer(

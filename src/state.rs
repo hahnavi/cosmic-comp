@@ -178,16 +178,19 @@ impl ClientData for ClientState {
     fn disconnected(&self, client_id: ClientId, _reason: DisconnectReason) {
         self.evlh.insert_idle(move |state| {
             if let BackendData::Kms(kms_state) = &mut state.backend {
+                let mut needs_refresh = false;
                 for device in kms_state.drm_devices.values_mut() {
                     if device.inner.active_clients.remove(&client_id)
                         && !device
                             .inner
                             .in_use(kms_state.primary_node.read().unwrap().as_ref())
                     {
-                        if let Err(err) = kms_state.refresh_used_devices() {
-                            warn!(?err, "Failed to init devices.");
-                        };
-                        break;
+                        needs_refresh = true;
+                    }
+                }
+                if needs_refresh {
+                    if let Err(err) = kms_state.refresh_used_devices() {
+                        warn!(?err, "Failed to init devices.");
                     }
                 }
             }

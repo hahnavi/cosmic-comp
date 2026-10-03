@@ -212,7 +212,10 @@ impl Data {
     fn orientation(&self) -> Orientation {
         match self {
             Data::Group { orientation, .. } => *orientation,
-            _ => panic!("Not a group"),
+            _ => {
+                debug_assert!(false, "Not a group");
+                Orientation::Horizontal
+            }
         }
     }
 
@@ -228,6 +231,11 @@ impl Data {
                     Orientation::Horizontal => last_geometry.size.h,
                     Orientation::Vertical => last_geometry.size.w,
                 };
+                if last_length <= 0 {
+                    let idx = idx.min(sizes.len());
+                    sizes.insert(idx, 0);
+                    return;
+                }
                 let equal_sizing = last_length / (sizes.len() as i32 + 1); // new window size
                 let remainder = last_length - equal_sizing; // size for the rest of the windowns
 
@@ -237,18 +245,31 @@ impl Data {
                 let used_size: i32 = sizes.iter().sum();
                 let new_size = last_length - used_size;
 
+                let idx = idx.min(sizes.len());
                 sizes.insert(idx, new_size);
             }
-            _ => panic!("Adding window to leaf?"),
+            _ => {
+                debug_assert!(false, "Adding window to leaf?");
+            }
         }
     }
 
     fn swap_windows(&mut self, i: usize, j: usize) {
         match self {
             Data::Group { sizes, .. } => {
-                sizes.swap(i, j);
+                if i < sizes.len() && j < sizes.len() {
+                    sizes.swap(i, j);
+                } else {
+                    debug_assert!(
+                        false,
+                        "Swapping windows index out of bounds: i={i}, j={j}, len={}",
+                        sizes.len()
+                    );
+                }
             }
-            _ => panic!("Swapping windows to a leaf?"),
+            _ => {
+                debug_assert!(false, "Swapping windows to a leaf?");
+            }
         }
     }
 
@@ -260,6 +281,14 @@ impl Data {
                 orientation,
                 ..
             } => {
+                if idx >= sizes.len() {
+                    debug_assert!(
+                        false,
+                        "remove_window index out of bounds: idx={idx}, len={}",
+                        sizes.len()
+                    );
+                    return;
+                }
                 let last_length = match orientation {
                     Orientation::Horizontal => last_geometry.size.h,
                     Orientation::Vertical => last_geometry.size.w,
@@ -267,17 +296,23 @@ impl Data {
                 let old_size = sizes.remove(idx);
                 let remaining_size: i32 = sizes.iter().sum();
 
-                for size in sizes.iter_mut() {
-                    *size +=
-                        ((*size as f64 / remaining_size as f64) * old_size as f64).round() as i32;
-                }
-                let used_size: i32 = sizes.iter().sum();
-                let overflow = last_length - used_size;
-                if overflow != 0 {
-                    *sizes.last_mut().unwrap() += overflow;
+                if remaining_size > 0 {
+                    for size in sizes.iter_mut() {
+                        *size += ((*size as f64 / remaining_size as f64) * old_size as f64).round()
+                            as i32;
+                    }
+                    let used_size: i32 = sizes.iter().sum();
+                    let overflow = last_length - used_size;
+                    if overflow != 0 {
+                        if let Some(last) = sizes.last_mut() {
+                            *last += overflow;
+                        }
+                    }
                 }
             }
-            _ => panic!("Added window to leaf?"),
+            _ => {
+                debug_assert!(false, "Added window to leaf?");
+            }
         }
     }
 
@@ -1092,11 +1127,11 @@ impl TilingLayout {
                     })
                     .flatten()
                     .collect::<Vec<_>>();
-                let cleanup = other_tree
+                let cleanup: smallvec::SmallVec<[_; 8]> = other_tree
                     .children_ids(&other_desc.node)
                     .unwrap()
                     .cloned()
-                    .collect::<Vec<_>>();
+                    .collect();
                 for node in cleanup {
                     let _ = other_tree.remove_node(node, RemoveBehavior::DropChildren);
                 }
@@ -1178,11 +1213,11 @@ impl TilingLayout {
                     })
                     .flatten()
                     .collect::<Vec<_>>();
-                let cleanup = this_tree
+                let cleanup: smallvec::SmallVec<[_; 8]> = this_tree
                     .children_ids(&this_desc.node)
                     .unwrap()
                     .cloned()
-                    .collect::<Vec<_>>();
+                    .collect();
                 for node in cleanup {
                     let _ = this_tree.remove_node(node, RemoveBehavior::DropChildren);
                 }
@@ -2384,9 +2419,13 @@ impl TilingLayout {
     }
 
     pub fn recalculate(&mut self) {
+        let current_tree = &self.queue.trees.back().unwrap().0;
+        if current_tree.root_node_id().is_none() {
+            return;
+        }
         let gaps = self.gaps();
 
-        let mut tree = self.queue.trees.back().unwrap().0.copy_clone();
+        let mut tree = current_tree.copy_clone();
         let blocker = TilingLayout::update_positions(&self.output, &mut tree, gaps);
         if TilingLayout::trees_equivalent(&tree, &self.queue.trees.back().unwrap().0) {
             return;
@@ -2475,13 +2514,9 @@ impl TilingLayout {
                 ready_trees -= 1;
                 let front = self.queue.trees.front_mut().unwrap();
                 if let Some(root_id) = front.0.root_node_id() {
-                    for node in front
-                        .0
-                        .traverse_pre_order_ids(root_id)
-                        .unwrap()
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                    {
+                    let nodes: smallvec::SmallVec<[_; 16]> =
+                        front.0.traverse_pre_order_ids(root_id).unwrap().collect();
+                    for node in nodes {
                         if let Data::Mapped { minimize_rect, .. } =
                             front.0.get_mut(&node).unwrap().data_mut()
                         {
@@ -5165,6 +5200,10 @@ fn render_old_tree_windows<R>(
         percentage,
         is_swap_mode,
         |mapped, elem_geometry, geo, alpha, is_minimizing| {
+            if alpha <= 0.0 {
+                return;
+            }
+
             let radius = mapped.corner_radius(geo.size.as_logical(), indicator_thickness);
             if is_minimizing && indicator_thickness > 0 {
                 push(CosmicMappedRenderElement::FocusIndicator(
@@ -5293,6 +5332,8 @@ fn render_old_tree(
                 } else {
                     1.0 - percentage
                 };
+
+                let alpha = alpha * mapped.fade_alpha();
 
                 let elem_geometry = mapped.geometry().to_physical_precise_round(output_scale);
 
@@ -5959,6 +6000,15 @@ fn render_new_tree(
                 })
                 .unwrap_or(*original_geo);
 
+            // A window that was just opened fades in over
+            // `WINDOW_FADE_DURATION` instead of over the whole tree animation.
+            // Windows entering the tree for any other reason keep fading in
+            // with the animation.
+            let open_fade = match data {
+                Data::Mapped { mapped, .. } => mapped.open_fade_alpha(),
+                _ => None,
+            };
+
             let (geo, alpha, animating) = if let Some((old_geo, alpha)) = old_geo.filter(|_| {
                 swap_desc
                     .map(|desc| desc.node != node_id && desc.stack_window.is_none())
@@ -5985,6 +6035,8 @@ fn render_new_tree(
                     alpha,
                     old_geo != new_geo,
                 )
+            } else if let Some(open_fade) = open_fade {
+                (new_geo, open_fade.max(percentage), false)
             } else {
                 (new_geo, percentage, false)
             };

@@ -483,13 +483,26 @@ impl CosmicStack {
     }
 
     pub fn active(&self) -> CosmicSurface {
-        self.0
-            .with_program(|p| p.windows.lock().unwrap()[p.active.load(Ordering::SeqCst)].clone())
+        self.0.with_program(|p| {
+            let windows = p.windows.lock().unwrap();
+            let active = p.active.load(Ordering::SeqCst);
+            windows
+                .get(active)
+                .or_else(|| windows.last())
+                .cloned()
+                .expect("Stack has no windows")
+        })
     }
 
     pub fn has_active(&self, window: &CosmicSurface) -> bool {
-        self.0
-            .with_program(|p| &p.windows.lock().unwrap()[p.active.load(Ordering::SeqCst)] == window)
+        self.0.with_program(|p| {
+            let windows = p.windows.lock().unwrap();
+            let active = p.active.load(Ordering::SeqCst);
+            windows
+                .get(active)
+                .or_else(|| windows.last())
+                .is_some_and(|w| w == window)
+        })
     }
 
     pub fn whole_stack_focused(&self) -> bool {
@@ -520,15 +533,8 @@ impl CosmicStack {
     }
 
     pub fn surfaces(&self) -> impl Iterator<Item = CosmicSurface> {
-        self.0.with_program(|p| {
-            p.windows
-                .lock()
-                .unwrap()
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>()
-                .into_iter()
-        })
+        self.0
+            .with_program(|p| p.windows.lock().unwrap().clone().into_iter())
     }
 
     pub fn focus_under(
@@ -538,7 +544,10 @@ impl CosmicStack {
     ) -> Option<(PointerFocusTarget, Point<f64, Logical>)> {
         self.0.with_program(|p| {
             let mut stack_ui = None;
-            let geo = p.windows.lock().unwrap()[p.active.load(Ordering::SeqCst)].geometry();
+            let windows = p.windows.lock().unwrap();
+            let active = p.active.load(Ordering::SeqCst);
+            let active_window = windows.get(active).or_else(|| windows.last())?;
+            let geo = active_window.geometry();
 
             if surface_type.contains(WindowSurfaceType::TOPLEVEL) {
                 let point_i32 = relative_pos.to_i32_floor::<i32>();
@@ -565,7 +574,6 @@ impl CosmicStack {
 
             relative_pos.y -= TAB_HEIGHT as f64;
 
-            let active_window = &p.windows.lock().unwrap()[p.active.load(Ordering::SeqCst)];
             stack_ui.or_else(|| {
                 active_window.focus_under(relative_pos, surface_type).map(
                     |(target, surface_offset)| {

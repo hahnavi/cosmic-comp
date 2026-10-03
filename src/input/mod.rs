@@ -148,10 +148,14 @@ impl SupressedKeys {
     ) -> Option<Vec<RegistrationToken>> {
         let mut by_source = self.0.borrow_mut();
         let keys = by_source.get_mut(backend_id)?;
-        let (removed, remaining) = keys
+        let (removed, remaining): (Vec<_>, Vec<_>) = keys
             .drain(..)
             .partition(|(key, _)| *key == keysym.raw_code());
-        *keys = remaining;
+        if remaining.is_empty() {
+            by_source.remove(backend_id);
+        } else {
+            *keys = remaining;
+        }
 
         if removed.is_empty() {
             return None;
@@ -180,10 +184,14 @@ impl SupressedButtons {
     }
 
     fn remove(&self, backend_id: &InputBackendId, button: u32) -> bool {
-        self.0
-            .borrow_mut()
+        let mut map = self.0.borrow_mut();
+        let removed = map
             .get_mut(backend_id)
-            .is_some_and(|buttons| buttons.remove(&button))
+            .is_some_and(|buttons| buttons.remove(&button));
+        if map.get(backend_id).is_some_and(|b| b.is_empty()) {
+            map.remove(backend_id);
+        }
+        removed
     }
 
     fn clear_source(&self, backend_id: &InputBackendId) {
@@ -243,6 +251,7 @@ impl State {
                 }
             }
             InputEvent::DeviceRemoved { device } => {
+                let mut removed = false;
                 for seat in &mut self.common.shell.read().seats.iter() {
                     let devices = seat.devices();
                     if devices.has_device(&device, &backend_id) {
@@ -254,7 +263,20 @@ impl State {
                                 seat.tablet_seat().clear_tools();
                             }
                         }
+                        removed = true;
                         break;
+                    }
+                }
+                if removed {
+                    let has_remaining = self
+                        .common
+                        .shell
+                        .read()
+                        .seats
+                        .iter()
+                        .any(|seat| seat.devices().has_backend(&backend_id));
+                    if !has_remaining {
+                        self.clear_input_source_state(&backend_id);
                     }
                 }
             }
@@ -465,6 +487,7 @@ impl State {
                             State::element_under(original_position, &current_output, &shell, &seat);
                         let new_keyboard_target =
                             State::element_under(position, &output, &shell, &seat);
+                        drop(shell);
 
                         if old_keyboard_target != new_keyboard_target
                             && new_keyboard_target.is_some()
@@ -573,7 +596,7 @@ impl State {
                                 PointerFocusTarget::WlSurface { surface, .. } => {
                                     if under_from_surface_tree(
                                         surface,
-                                        position.as_logical() - surface_loc.to_f64(),
+                                        pos.as_logical() - surface_loc.to_f64(),
                                         (0, 0),
                                         WindowSurfaceType::ALL,
                                     )
@@ -585,7 +608,7 @@ impl State {
                                 PointerFocusTarget::X11Surface { surface, .. } => {
                                     if surface
                                         .surface_under(
-                                            position.as_logical() - surface_loc.to_f64(),
+                                            pos.as_logical() - surface_loc.to_f64(),
                                             (0, 0),
                                             WindowSurfaceType::ALL,
                                         )

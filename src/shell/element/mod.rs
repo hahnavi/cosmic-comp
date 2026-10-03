@@ -46,6 +46,7 @@ use std::{
     fmt,
     hash::Hash,
     sync::{Arc, Mutex, Weak, atomic::AtomicBool},
+    time::{Duration, Instant},
 };
 
 pub mod surface;
@@ -72,7 +73,7 @@ use super::{
     ManagedLayer,
     focus::target::PointerFocusTarget,
     layout::{
-        floating::{ResizeState, TiledCorners},
+        floating::{MINIMIZE_ANIMATION_DURATION, ResizeState, TiledCorners},
         tiling::NodeDesc,
     },
 };
@@ -92,6 +93,39 @@ pub struct MaximizedState {
     pub original_snapped: Option<TiledCorners>,
 }
 
+pub const WINDOW_FADE_DURATION: Duration = Duration::from_millis(80);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FadeDirection {
+    In,
+    Out,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct WindowFade {
+    start: Instant,
+    direction: FadeDirection,
+}
+
+impl WindowFade {
+    fn elapsed(&self) -> Duration {
+        Instant::now().duration_since(self.start)
+    }
+
+    fn finished(&self) -> bool {
+        self.elapsed() >= WINDOW_FADE_DURATION
+    }
+
+    fn alpha(&self) -> f32 {
+        let progress =
+            (self.elapsed().as_secs_f32() / WINDOW_FADE_DURATION.as_secs_f32()).clamp(0.0, 1.0);
+        match self.direction {
+            FadeDirection::In => progress,
+            FadeDirection::Out => 1.0 - progress,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct CosmicMapped {
     element: CosmicMappedInternal,
@@ -108,6 +142,8 @@ pub struct CosmicMapped {
     pub floating_tiled: Arc<Mutex<Option<TiledCorners>>>,
     //sticky
     pub previous_layer: Arc<Mutex<Option<ManagedLayer>>>,
+    //opening/closing fade
+    fade: Arc<Mutex<Option<WindowFade>>>,
 
     #[cfg(feature = "debug")]
     debug: Arc<Mutex<Option<smithay_egui::EguiState>>>,
@@ -216,6 +252,56 @@ impl CosmicMapped {
             CosmicMappedInternal::Window(win) => win.surface(),
             _ => unreachable!(),
         }
+    }
+
+    pub fn start_fade_in(&self) {
+        let mut fade = self.fade.lock().unwrap();
+        if fade.is_some_and(|fade| fade.direction == FadeDirection::In) {
+            return;
+        }
+        *fade = Some(WindowFade {
+            start: Instant::now(),
+            direction: FadeDirection::In,
+        });
+    }
+
+    pub fn start_fade_out(&self) {
+        *self.fade.lock().unwrap() = Some(WindowFade {
+            start: Instant::now(),
+            direction: FadeDirection::Out,
+        });
+    }
+
+    pub fn fade_alpha(&self) -> f32 {
+        self.fade
+            .lock()
+            .unwrap()
+            .map(|fade| fade.alpha())
+            .unwrap_or(1.0)
+    }
+
+    pub fn is_fading(&self) -> bool {
+        self.fade
+            .lock()
+            .unwrap()
+            .is_some_and(|fade| !fade.finished())
+    }
+
+    pub fn is_fading_out(&self) -> bool {
+        self.fade
+            .lock()
+            .unwrap()
+            .is_some_and(|fade| fade.direction == FadeDirection::Out && !fade.finished())
+    }
+
+    pub fn open_fade_alpha(&self) -> Option<f32> {
+        self.fade
+            .lock()
+            .unwrap()
+            .filter(|fade| {
+                fade.direction == FadeDirection::In && fade.elapsed() < MINIMIZE_ANIMATION_DURATION
+            })
+            .map(|fade| fade.alpha())
     }
 
     pub fn has_active_window(&self, window: &CosmicSurface) -> bool {
@@ -1076,6 +1162,7 @@ impl From<CosmicWindow> for CosmicMapped {
             moved_since_mapped: Arc::new(AtomicBool::new(false)),
             floating_tiled: Arc::new(Mutex::new(None)),
             previous_layer: Arc::new(Mutex::new(None)),
+            fade: Arc::new(Mutex::new(None)),
             #[cfg(feature = "debug")]
             debug: Arc::new(Mutex::new(None)),
         }
@@ -1093,6 +1180,7 @@ impl From<CosmicStack> for CosmicMapped {
             moved_since_mapped: Arc::new(AtomicBool::new(false)),
             floating_tiled: Arc::new(Mutex::new(None)),
             previous_layer: Arc::new(Mutex::new(None)),
+            fade: Arc::new(Mutex::new(None)),
             #[cfg(feature = "debug")]
             debug: Arc::new(Mutex::new(None)),
         }

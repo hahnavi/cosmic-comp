@@ -82,7 +82,7 @@ dependencies = [
  "ndk-context",
  "ndk-sys",
  "num_enum",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -488,7 +488,7 @@ dependencies = [
 [[package]]
 name = "build_helpers"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "cfg_aliases",
 ]
@@ -566,9 +566,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.4.7"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54413ede23c2daf518f35156dfde027feb2374004d63bd497f983c8db9c0e313"
+checksum = "f360145194ee8e21db5ee7f3fcd4fe52210864c75c985dae33218202c8bbe040"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -814,7 +814,7 @@ dependencies = [
  "egui_plot",
  "futures-executor",
  "futures-util",
- "glam 0.33.7",
+ "glam 0.33.11",
  "i18n-embed",
  "i18n-embed-fl",
  "iced_graphics",
@@ -835,7 +835,7 @@ dependencies = [
  "parking_lot",
  "png 0.18.1",
  "profiling",
- "rand 0.10.2",
+ "rand 0.10.3",
  "regex",
  "resvg 0.45.1",
  "ron 0.12.2",
@@ -847,7 +847,7 @@ dependencies = [
  "smallvec",
  "smithay",
  "smithay-egui",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tiny-skia",
  "tracing",
  "tracing-journald",
@@ -878,7 +878,7 @@ dependencies = [
 [[package]]
 name = "cosmic-config"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "atomicwrites",
  "calloop",
@@ -899,7 +899,7 @@ dependencies = [
 [[package]]
 name = "cosmic-config-derive"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "quote",
  "syn 2.0.119",
@@ -914,7 +914,7 @@ dependencies = [
  "btoi",
  "memchr",
  "memmap2",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
  "xdg",
 ]
@@ -922,7 +922,7 @@ dependencies = [
 [[package]]
 name = "cosmic-protocols"
 version = "0.2.0"
-source = "git+https://github.com/pop-os//cosmic-protocols?branch=main#c0cff4db14c37ed954983158e4055aa94c7741d9"
+source = "git+https://github.com/hahnavi/cosmic-protocols?branch=hahnavi#c9240dbb84db24a578a3c439a2bc32ced0d8d618"
 dependencies = [
  "bitflags 2.13.2",
  "wayland-backend",
@@ -939,13 +939,13 @@ source = "git+https://github.com/pop-os/cosmic-randr/#6e8e795970fa06d434af22775e
 dependencies = [
  "kdl",
  "slotmap",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "cosmic-settings-config"
 version = "1.9.0"
-source = "git+https://github.com/pop-os/cosmic-settings-daemon#ac6190062c67dd687c2c1ea66e6cbea4dc9261b9"
+source = "git+https://github.com/pop-os/cosmic-settings-daemon#6ac574e4ff5a4a86af82610e644dca2ae3df3516"
 dependencies = [
  "cosmic-config",
  "ron 0.11.0",
@@ -966,7 +966,7 @@ dependencies = [
 [[package]]
 name = "cosmic-settings-daemon-config"
 version = "1.9.0"
-source = "git+https://github.com/pop-os/cosmic-settings-daemon#ac6190062c67dd687c2c1ea66e6cbea4dc9261b9"
+source = "git+https://github.com/pop-os/cosmic-settings-daemon#6ac574e4ff5a4a86af82610e644dca2ae3df3516"
 dependencies = [
  "cosmic-config",
  "cosmic-theme",
@@ -1000,7 +1000,7 @@ dependencies = [
 [[package]]
 name = "cosmic-theme"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "almost",
  "configparser",
@@ -1012,7 +1012,7 @@ dependencies = [
  "ron 0.12.2",
  "serde",
  "serde_json",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1227,7 +1227,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
 dependencies = [
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1531,13 +1531,12 @@ dependencies = [
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.41"
+version = "0.8.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5ef0006ac9ab233c38522f5ae99cae3625151de8f706cacee1cba4b8e2832a"
+checksum = "8e985e0451871ad22fb8d2b6b076e2028a502a0d3950998c2c5c0a4f9b5d9679"
 dependencies = [
  "cfg-if",
  "core_detect",
- "multiversion",
  "multiversion_no_op",
  "rustversion",
  "scopeguard",
@@ -1702,9 +1701,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.13"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef25905e51abafe4dcea6c15fec58c57b601cdbd0ee53d22ea1d3016c587d39b"
+checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
 
 [[package]]
 name = "flate2"
@@ -1780,7 +1779,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54f0d287c53ffd184d04d8677f590f4ac5379785529e5e08b1c8083acdd5c198"
 dependencies = [
  "memchr",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -2006,9 +2005,9 @@ dependencies = [
 
 [[package]]
 name = "generator"
-version = "0.8.10"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ade96dc9003043bce7c035c85a9df5a858bfb2039c5a2e6fdf00f324f6c551"
+checksum = "b3b854b0e584ead1a33f18b2fcad7cf7be18b3875c78816b753639aa501513ae"
 dependencies = [
  "cc",
  "cfg-if",
@@ -2097,9 +2096,9 @@ checksum = "151665d9be52f9bb40fc7966565d39666f2d1e69233571b71b87791c7e0528b3"
 
 [[package]]
 name = "glam"
-version = "0.33.7"
+version = "0.33.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e762b9b188634fc508d4ec54b62ea3d352c43fd431d18d05d46f559f217f4725"
+checksum = "35b4e837a1d133645d1dcf283e146a4b9901e390a1c13545f959cfed3a72f24f"
 
 [[package]]
 name = "glow"
@@ -2343,7 +2342,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "build_helpers",
  "dnd",
@@ -2356,14 +2355,14 @@ dependencies = [
  "iced_widget",
  "image",
  "mime 0.1.0",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "window_clipboard",
 ]
 
 [[package]]
 name = "iced_core"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "bitflags 2.13.2",
  "build_helpers",
@@ -2379,7 +2378,7 @@ dependencies = [
  "rustc-hash 2.1.3",
  "serde",
  "smol_str",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "unicode-segmentation",
  "web-time",
  "window_clipboard",
@@ -2388,7 +2387,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2398,7 +2397,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "futures",
  "iced_core",
@@ -2411,7 +2410,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -2425,14 +2424,14 @@ dependencies = [
  "lyon_path",
  "raw-window-handle",
  "rustc-hash 2.1.3",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "unicode-segmentation",
 ]
 
 [[package]]
 name = "iced_program"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2441,19 +2440,19 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
  "iced_wgpu",
  "log",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "iced_runtime"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "build_helpers",
  "bytes",
@@ -2461,14 +2460,14 @@ dependencies = [
  "iced_core",
  "iced_futures",
  "raw-window-handle",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "window_clipboard",
 ]
 
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2485,7 +2484,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "as-raw-xcb-connection",
  "bitflags 2.13.2",
@@ -2503,7 +2502,7 @@ dependencies = [
  "resvg 0.45.1",
  "rustc-hash 2.1.3",
  "rustix 0.38.44",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tiny-xlib",
  "wayland-backend",
  "wayland-client",
@@ -2516,7 +2515,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.2"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "build_helpers",
  "dnd",
@@ -2526,7 +2525,7 @@ dependencies = [
  "num-traits",
  "ouroboros",
  "rustc-hash 2.1.3",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "unicode-segmentation",
  "window_clipboard",
 ]
@@ -2850,7 +2849,7 @@ dependencies = [
  "jni-sys 0.4.1",
  "log",
  "simd_cesu8",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "walkdir",
  "windows-link",
 ]
@@ -2908,9 +2907,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.105"
+version = "0.3.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce57d20d1ea864ce2ac172ab472d409214f4fd359f0b2a2775abdf522e2af99e"
+checksum = "0e0c1080212aad755ea003d18543e8768dd432c48819efd73a7bf1e39b7a5a3a"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -3037,7 +3036,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 [[package]]
 name = "libcosmic"
 version = "1.0.0"
-source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#37f9bd032fdbdc1f53ce779bddff4fd6aa0f216a"
+source = "git+https://github.com/hahnavi/libcosmic.git?branch=hahnavi#87e452ae5fad815769e65b5f31a42b59f904560e"
 dependencies = [
  "apply",
  "auto_enums",
@@ -3070,7 +3069,7 @@ dependencies = [
  "serde",
  "slotmap",
  "taffy",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
  "unicode-segmentation",
  "url",
@@ -3087,7 +3086,7 @@ dependencies = [
  "libc",
  "libdisplay-info-derive",
  "libdisplay-info-sys",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -3139,14 +3138,14 @@ dependencies = [
 
 [[package]]
 name = "libredox"
-version = "0.1.24"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6480ccc157a1389bb2e4891b24751b0f798ba640d22386f23143fbcc89da195a"
+checksum = "8d8f1ea3f21fd3405dcaf6c9b5c1630af9afc422d9073ea39c5f6d6c772e08ed"
 dependencies = [
  "bitflags 2.13.2",
  "libc",
  "plain",
- "redox_syscall 0.9.4",
+ "redox_syscall 0.9.3",
 ]
 
 [[package]]
@@ -3183,7 +3182,7 @@ dependencies = [
  "once_cell",
  "serde",
  "sha2 0.10.9",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "uuid",
 ]
 
@@ -3500,27 +3499,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "multiversion"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4ca4bea16ffc3f443cf7d866912118196bfef4c6a1556ca00f9f9b00bb43f7c"
-dependencies = [
- "multiversion-macros",
-]
-
-[[package]]
-name = "multiversion-macros"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d416831a7317ef4b08bee00b69cbbb9c8763da7959a7026244d6266869f9c83"
-dependencies = [
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 3.0.6",
-]
-
-[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3553,7 +3531,7 @@ dependencies = [
  "num-traits",
  "once_cell",
  "rustc-hash 1.1.0",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "unicode-ident",
 ]
 
@@ -4095,7 +4073,7 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67eabc2ef2a60eb7faa00097bd1ffdb5bd28e62bf39990626a582201b7a754e5"
 dependencies = [
- "siphasher 1.0.3",
+ "siphasher 1.0.4",
  "unicase",
 ]
 
@@ -4105,7 +4083,7 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e57fef6bc5981e38c2ce2d63bfa546861309f875b8a75f092d1d54ae2d64f266"
 dependencies = [
- "siphasher 1.0.3",
+ "siphasher 1.0.4",
  "uncased",
 ]
 
@@ -4389,9 +4367,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
  "chacha20",
  "getrandom 0.4.3",
@@ -4484,21 +4462,22 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.9.4"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "737970939a87c6fa31e7acad13307bccbb017a073b695b6089a2c484f929e20e"
+checksum = "d678d17679829e73d371e96880897e98fee2ded7acc0a50bdf8af2affa4b2fe5"
 dependencies = [
  "bitflags 2.13.2",
 ]
 
 [[package]]
 name = "redox_users"
-version = "0.5.3"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60dc65c0ff1a7ae1294b0c67b9f14baf70b644404010370171787bfac1038fc0"
+checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
+ "getrandom 0.2.17",
  "libredox",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -4891,9 +4870,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.23.0"
+version = "3.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "935177bb8c0cd8ca1a4e6d1a2ac8988bea69cab4f9d3a31311e012ad27868ea4"
+checksum = "df9adc193c780ef8f159aee8b61e2d5801aaa555e6eb0947fe45530ec506296f"
 dependencies = [
  "base64 0.23.1",
  "bs58",
@@ -4912,9 +4891,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.23.0"
+version = "3.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d607aa01a3cb0ad757d6fd216136910db3c97b102fe686585689615a02dbcdc"
+checksum = "3e17bbc68e28663bbbb90df47e058aa7eda4fb445b89fe70457bb94fbccf6e49"
 dependencies = [
  "darling 0.24.1",
  "proc-macro2",
@@ -5008,9 +4987,9 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "siphasher"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ee5873ec9cce0195efcb7a4e9507a04cd49aec9c83d0389df45b1ef7ba2e649"
+checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
 name = "skrifa"
@@ -5049,9 +5028,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.16.1"
+version = "1.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba467056f1b547ed52077911161fc86985becbc60e8e1857c8a144dab0def891"
+checksum = "f9395f0f0eee849a9b707b2f06bb92a6a422090e2123bb2ef8e87a0e61892a8e"
 
 [[package]]
 name = "smithay"
@@ -5074,7 +5053,7 @@ dependencies = [
  "errno",
  "gbm",
  "gl_generator",
- "glam 0.33.7",
+ "glam 0.33.11",
  "glow",
  "indexmap 2.14.2",
  "input",
@@ -5085,14 +5064,14 @@ dependencies = [
  "pkg-config",
  "portable-atomic",
  "profiling",
- "rand 0.10.2",
+ "rand 0.10.3",
  "reis",
  "rustix 1.1.5",
  "scopeguard",
- "siphasher 1.0.3",
+ "siphasher 1.0.4",
  "smallvec",
  "tempfile",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "tracing",
  "tracy-client",
  "udev",
@@ -5122,7 +5101,7 @@ dependencies = [
  "log",
  "memmap2",
  "rustix 1.1.5",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wayland-backend",
  "wayland-client",
  "wayland-csd-frame",
@@ -5148,7 +5127,7 @@ dependencies = [
  "log",
  "memmap2",
  "rustix 1.1.5",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wayland-client",
  "wayland-csd-frame",
  "wayland-cursor",
@@ -5287,7 +5266,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68c7541fff44b35860c1a7a47a7cadf3e4a304c457b58f9870d9706ece028afc"
 dependencies = [
  "kurbo 0.11.3",
- "siphasher 1.0.3",
+ "siphasher 1.0.4",
 ]
 
 [[package]]
@@ -5398,11 +5377,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.20"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
+checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
 dependencies = [
- "thiserror-impl 2.0.20",
+ "thiserror-impl 2.0.21",
 ]
 
 [[package]]
@@ -5418,9 +5397,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.20"
+version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
+checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5872,7 +5851,7 @@ dependencies = [
  "roxmltree 0.20.0",
  "rustybuzz",
  "simplecss",
- "siphasher 1.0.3",
+ "siphasher 1.0.4",
  "strict-num",
  "svgtypes 0.15.3",
  "tiny-skia-path",
@@ -5965,9 +5944,9 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.128"
+version = "0.2.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aecb87a33d3b0c5e3b7aa46336eaf486cffafbd281b195e4c8b80d50df2351bf"
+checksum = "1b70935747edd64d89de3efa29d73789b806c15798f8e7dca4d8ac356b50ce70"
 dependencies = [
  "cfg-if",
  "once_cell",
@@ -5978,9 +5957,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.78"
+version = "0.4.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ef4c5d3d2cdf5c54f4231181768f5510842e350db025faf1f7163b1030ed928"
+checksum = "6b7777d5cc23d0e91404e53ce2d5e8ec7acae3026b16233dba62cd3246457950"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -5988,9 +5967,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.128"
+version = "0.2.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a690d511e3c1a8b3a55e33511e3c2c00c78415cd23650f32b808627f5696b9ed"
+checksum = "77775f8f3f7217702089053b94958f8f54061a3f663417df76e19cbdcca29bc1"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -5998,22 +5977,22 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.128"
+version = "0.2.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "411e4887f0071ef2d2164a9d5fdf2d20efbef78fccd3a78b0c10a1dc5295e48a"
+checksum = "e11d33f857dc2fb11b8bc75aee111aa9cbeb12cd9f25efd3d4c2a3dd4e235284"
 dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn 3.0.6",
+ "syn 2.0.119",
  "wasm-bindgen-shared",
 ]
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.128"
+version = "0.2.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81941cd78d0c92026c33e5e01312845a4cb1e9af3407f9134b100dd03144103e"
+checksum = "7ef64dbcc55df09c7e5a46182d181c2cfa3e925f3da937ea764728b4bbb9dcbf"
 dependencies = [
  "unicode-ident",
 ]
@@ -6208,9 +6187,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.105"
+version = "0.3.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fbddc4a036f00ec4f18c83445bd3115cb306a91da554919a099d9222fe4a7f8"
+checksum = "c435338968042f4f59a557f690a253676d47ce13ceb55d70100e7facf6620a30"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -6280,7 +6259,7 @@ dependencies = [
  "raw-window-handle",
  "rustc-hash 1.1.0",
  "smallvec",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wgpu-core-deps-windows-linux-android",
  "wgpu-hal",
  "wgpu-types",
@@ -6311,7 +6290,7 @@ dependencies = [
  "portable-atomic-util",
  "raw-window-handle",
  "renderdoc-sys",
- "thiserror 2.0.20",
+ "thiserror 2.0.21",
  "wgpu-types",
 ]
 
@@ -7119,18 +7098,18 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zerocopy"
-version = "0.8.57"
+version = "0.8.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d35102a9f36d089ccae9e4c6802bc118be4487b80aaffc0ab4e0cf5ce92d2873"
+checksum = "6df92bf3d9227be3d53173901ddbffac2babc27ae50f397776ffd6dc33f800cb"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.57"
+version = "0.8.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "146c01f5ab44258da43cf276c74a2763db2ff3969c9c652c3f2de07041d0b2bc"
+checksum = "ac4f328cf2f05d084e496c3e9c3f33ed0a183656a16e1fcec4d464d8373aec82"
 dependencies = [
  "proc-macro2",
  "quote",

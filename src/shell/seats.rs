@@ -147,6 +147,14 @@ impl Devices {
             .contains_key(&(backend_id.clone(), device.id()))
     }
 
+    /// Whether any device for the given backend is registered on the seat.
+    pub fn has_backend(&self, backend_id: &InputBackendId) -> bool {
+        self.capabilities
+            .borrow()
+            .keys()
+            .any(|(backend, _)| backend == backend_id)
+    }
+
     pub fn remove_device<D: Device>(
         &self,
         device: &D,

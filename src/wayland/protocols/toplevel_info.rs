@@ -3,6 +3,7 @@
 use std::{collections::HashSet, sync::Mutex};
 
 use smithay::{
+    desktop::{WindowSurfaceType, layer_map_for_output},
     output::Output,
     reexports::{
         wayland_protocols::ext::foreign_toplevel_list::v1::server::{
@@ -15,14 +16,14 @@ use smithay::{
             protocol::{wl_output::WlOutput, wl_surface::WlSurface},
         },
     },
-    utils::{IsAlive, Logical, Rectangle, user_data::UserDataMap},
+    utils::{IsAlive, Logical, Point, Rectangle, user_data::UserDataMap},
     wayland::foreign_toplevel_list::{
         ForeignToplevelHandle, ForeignToplevelListGlobalData, ForeignToplevelListHandler,
         ForeignToplevelListState,
     },
 };
 
-use crate::utils::prelude::{Global, OutputExt, RectGlobalExt};
+use crate::utils::prelude::{Global, Local, OutputExt, RectExt, RectGlobalExt};
 
 use super::workspace::{WorkspaceHandle, WorkspaceHandler, WorkspaceState};
 
@@ -41,6 +42,7 @@ pub trait Window: IsAlive + Clone + PartialEq + Send {
     fn is_minimized(&self) -> bool;
     fn is_sticky(&self) -> bool;
     fn is_resizing(&self) -> bool;
+    fn is_decorated(&self) -> bool;
     fn global_geometry(&self) -> Option<Rectangle<i32, Global>>;
     fn user_data(&self) -> &UserDataMap;
 }
@@ -102,6 +104,8 @@ pub struct ToplevelHandleStateInner<W: Window> {
     title: String,
     app_id: String,
     states: Option<Vec<States>>,
+    decoration_mode: Option<zcosmic_toplevel_handle_v1::DecorationMode>,
+    minimize_rectangles: Vec<(Output, Option<Rectangle<i32, Local>>)>,
     pub(super) window: Option<W>,
 }
 pub type ToplevelHandleState<W> = Mutex<ToplevelHandleStateInner<W>>;
@@ -116,6 +120,8 @@ impl<W: Window> ToplevelHandleStateInner<W> {
             title: String::new(),
             app_id: String::new(),
             states: None,
+            decoration_mode: None,
+            minimize_rectangles: Vec::new(),
             window: Some(window.clone()),
         })
     }
@@ -129,6 +135,8 @@ impl<W: Window> ToplevelHandleStateInner<W> {
             title: String::new(),
             app_id: String::new(),
             states: None,
+            decoration_mode: None,
+            minimize_rectangles: Vec::new(),
             window: None,
         })
     }
@@ -318,7 +326,7 @@ where
         F: for<'a> Fn(&'a Client) -> bool + Send + Sync + Clone + 'static,
     {
         let global = dh.create_global::<D, ZcosmicToplevelInfoV1, _>(
-            3,
+            5,
             ToplevelInfoGlobalData {
                 filter: Box::new(client_filter.clone()),
             },
@@ -554,12 +562,57 @@ where
 
     let workspaces_changed = state.workspaces != handle_state.workspaces;
 
+    let minimize_rectangles_changed =
+        if instance.version() >= zcosmic_toplevel_handle_v1::EVT_MINIMIZE_RECTANGLE_SINCE {
+            let rectangles: Vec<(Output, Option<Rectangle<i32, Local>>)> = state
+                .outputs
+                .iter()
+                .map(|output| {
+                    (
+                        output.clone(),
+                        minimize_rectangle_on_output(&state.rectangles, output).inspect(|rect| {
+                            tracing::debug!(
+                                rect = ?(rect.loc.x, rect.loc.y, rect.size.w, rect.size.h),
+                                output = %output.name(),
+                                "minimize_rectangle for toplevel {}", window.title()
+                            );
+                        }),
+                    )
+                })
+                .collect();
+            let changed = rectangles != handle_state.minimize_rectangles;
+            if changed {
+                handle_state.minimize_rectangles = rectangles;
+            }
+            changed
+        } else {
+            false
+        };
+
+    let decoration_mode_changed =
+        if instance.version() >= zcosmic_toplevel_handle_v1::EVT_DECORATION_MODE_SINCE {
+            let mode = if window.is_decorated() {
+                zcosmic_toplevel_handle_v1::DecorationMode::Client
+            } else {
+                zcosmic_toplevel_handle_v1::DecorationMode::Server
+            };
+            let changed = handle_state.decoration_mode != Some(mode.clone());
+            if changed {
+                handle_state.decoration_mode = Some(mode);
+            }
+            changed
+        } else {
+            false
+        };
+
     if new_title.is_none()
         && new_app_id.is_none()
         && new_states.is_none()
         && !geometry_changed
         && !outputs_changed
         && !workspaces_changed
+        && !minimize_rectangles_changed
+        && !decoration_mode_changed
     {
         return false;
     }
@@ -636,6 +689,31 @@ where
         });
     }
 
+    if minimize_rectangles_changed && let Ok(client) = dh.get_client(instance.id()) {
+        for (output, rectangle) in &handle_state.minimize_rectangles {
+            for wl_output in output.client_outputs(&client) {
+                if handle_state.wl_outputs.contains(&wl_output) {
+                    match rectangle {
+                        Some(rectangle) => instance.minimize_rectangle(
+                            &wl_output,
+                            rectangle.loc.x,
+                            rectangle.loc.y,
+                            rectangle.size.w,
+                            rectangle.size.h,
+                        ),
+                        None => instance.minimize_rectangle(&wl_output, 0, 0, 0, 0),
+                    }
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    if decoration_mode_changed {
+        instance.decoration_mode(handle_state.decoration_mode.unwrap());
+        changed = true;
+    }
+
     if workspaces_changed {
         for new_workspace in state
             .workspaces
@@ -676,6 +754,24 @@ pub fn window_from_handle<W: Window + 'static>(handle: ZcosmicToplevelHandleV1) 
     handle
         .data::<ToplevelHandleState<W>>()
         .and_then(|state| state.lock().unwrap().window.clone())
+}
+
+fn minimize_rectangle_on_output(
+    rectangles: &[(Weak<WlSurface>, Rectangle<i32, Logical>)],
+    output: &Output,
+) -> Option<Rectangle<i32, Local>> {
+    rectangles.iter().find_map(|(surface, relative)| {
+        let surface = surface.upgrade().ok()?;
+        let map = layer_map_for_output(output);
+        let layer = map.layer_for_surface(&surface, WindowSurfaceType::ALL);
+        layer.and_then(|s| map.layer_geometry(s)).map(|local| {
+            Rectangle::new(
+                Point::from((local.loc.x + relative.loc.x, local.loc.y + relative.loc.y)),
+                relative.size,
+            )
+            .as_local()
+        })
+    })
 }
 
 pub fn window_from_ext<W: Window + 'static, D>(

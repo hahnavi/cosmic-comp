@@ -26,6 +26,7 @@ use smithay::{
     wayland::shell::xdg::XdgShellHandler,
 };
 use std::sync::Mutex;
+use tracing::warn;
 use wayland_backend::server::GlobalId;
 
 type ToplevelHookId = Mutex<Option<(HookId, Weak<CosmicCornerRadiusToplevelV1>)>>;
@@ -198,11 +199,12 @@ where
                     });
                     if radius_exists.unwrap_or_default() {
                         resource.post_error(
-                                cosmic_corner_radius_manager_v1::Error::CornerRadiusExists as u32,
-                                format!(
-                                    "{resource:?} CosmicCornerRadiusToplevelV1 object already exists for the surface"
-                                ),
-                            );
+                            cosmic_corner_radius_manager_v1::Error::CornerRadiusExists as u32,
+                            format!(
+                                "{resource:?} CosmicCornerRadiusLayerV1 object already exists for the surface"
+                            ),
+                        );
+                        return;
                     }
                     let data = Mutex::new(CornerRadiusInternal {
                         surface: CornerRadiusSurface::Layer(layer.downgrade()),
@@ -213,20 +215,31 @@ where
                     let obj_downgrade = obj.downgrade();
 
                     let needs_hook = radius_exists.is_none();
-                    if needs_hook {
-                        let hook_id =
-                            add_pre_commit_hook::<D, _>(surface.wl_surface(), layer_radius_hook);
-                        with_states(surface.wl_surface(), |surface_data| {
-                            let hook_ids = surface_data
-                                .data_map
-                                .get_or_insert_threadsafe(|| LayerHookId::new(None));
-                            let mut guard = hook_ids.lock().unwrap();
+                    let hook_id = if needs_hook {
+                        Some(add_pre_commit_hook::<D, _>(
+                            surface.wl_surface(),
+                            layer_radius_hook,
+                        ))
+                    } else {
+                        None
+                    };
+
+                    with_states(surface.wl_surface(), |surface_data| {
+                        let hook_ids = surface_data
+                            .data_map
+                            .get_or_insert_threadsafe(|| LayerHookId::new(None));
+                        let mut guard = hook_ids.lock().unwrap();
+                        if let Some(hook_id) = hook_id {
                             *guard = Some((hook_id, obj_downgrade));
-                        });
-                    }
+                        } else if let Some((_, ref mut obj)) = *guard {
+                            *obj = obj_downgrade;
+                        }
+                    });
                 } // TODO: can this fail?
             }
-            _ => unimplemented!(),
+            _ => {
+                warn!(?request, "Unhandled corner radius manager request");
+            }
         }
     }
 
@@ -268,6 +281,7 @@ fn new_xdg<D>(
                 "{resource:?} CosmicCornerRadiusToplevelV1 object already exists for the surface"
             ),
         );
+        return;
     }
     let data = Mutex::new(CornerRadiusInternal {
         surface,
@@ -278,16 +292,23 @@ fn new_xdg<D>(
     let obj_downgrade = obj.downgrade();
 
     let needs_hook = radius_exists.is_none();
-    if needs_hook {
-        let hook_id = add_pre_commit_hook::<D, _>(wl_surface, xdg_radius_hook);
-        with_states(wl_surface, |surface_data| {
-            let hook_ids = surface_data
-                .data_map
-                .get_or_insert_threadsafe(|| ToplevelHookId::new(None));
-            let mut guard = hook_ids.lock().unwrap();
+    let hook_id = if needs_hook {
+        Some(add_pre_commit_hook::<D, _>(wl_surface, xdg_radius_hook))
+    } else {
+        None
+    };
+
+    with_states(wl_surface, |surface_data| {
+        let hook_ids = surface_data
+            .data_map
+            .get_or_insert_threadsafe(|| ToplevelHookId::new(None));
+        let mut guard = hook_ids.lock().unwrap();
+        if let Some(hook_id) = hook_id {
             *guard = Some((hook_id, obj_downgrade));
-        });
-    }
+        } else if let Some((_, ref mut obj)) = *guard {
+            *obj = obj_downgrade;
+        }
+    });
 }
 
 impl<D>
@@ -331,11 +352,6 @@ where
                 };
 
                 with_states(&wl_surface, |surface_data| {
-                    if let Some(hook_ids_mutex) = surface_data.data_map.get::<ToplevelHookId>() {
-                        let mut hook_id = hook_ids_mutex.lock().unwrap();
-                        *hook_id = None;
-                    }
-
                     let mut cached = surface_data.cached_state.get::<CacheableCorners>();
                     let pending = cached.pending();
                     *pending = CacheableCorners(None);
@@ -415,7 +431,9 @@ where
 
                 state.unset_corner_radius(data);
             }
-            _ => unimplemented!(),
+            _ => {
+                warn!(?request, "Unhandled corner radius toplevel request");
+            }
         }
     }
 }
@@ -460,11 +478,6 @@ where
                 };
 
                 with_states(layer_surface.wl_surface(), |surface_data| {
-                    if let Some(hook_ids_mutex) = surface_data.data_map.get::<LayerHookId>() {
-                        let mut hook_id = hook_ids_mutex.lock().unwrap();
-                        *hook_id = None;
-                    }
-
                     let mut cached = surface_data.cached_state.get::<CacheableCorners>();
                     let pending = cached.pending();
                     *pending = CacheableCorners(None);
@@ -604,7 +617,9 @@ where
 
                 state.unset_padding(data);
             }
-            _ => unimplemented!(),
+            _ => {
+                warn!(?request, "Unhandled corner radius layer request");
+            }
         }
     }
 }

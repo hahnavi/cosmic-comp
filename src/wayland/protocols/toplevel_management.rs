@@ -235,6 +235,10 @@ where
             } => {
                 let window =
                     window_from_handle::<<D as ToplevelInfoHandler>::Window>(toplevel).unwrap();
+                tracing::debug!(
+                    ?x, ?y, ?width, ?height, surface = %surface.id(),
+                    "set_rectangle for toplevel {}", window.title()
+                );
                 if let Some(toplevel_state) = window.user_data().get::<ToplevelState>() {
                     let mut toplevel_state = toplevel_state.lock().unwrap();
                     toplevel_state

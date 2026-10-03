@@ -169,13 +169,25 @@ where
             let gl_data = renderer.map_texture(&mapping)?;
             assert!((width * height * pixelsize) as usize <= gl_data.len());
 
-            for i in 0..height {
+            let row_bytes = (width * pixelsize) as usize;
+            if stride as usize == row_bytes {
+                let total_bytes = row_bytes * height as usize;
                 unsafe {
                     std::ptr::copy_nonoverlapping::<u8>(
-                        gl_data.as_ptr().offset((width * pixelsize * i) as isize),
-                        ptr.offset((offset + stride * i) as isize),
-                        (width * pixelsize) as usize,
+                        gl_data.as_ptr(),
+                        ptr.offset(offset as isize),
+                        total_bytes,
                     );
+                }
+            } else {
+                for i in 0..height {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping::<u8>(
+                            gl_data.as_ptr().offset((width * pixelsize * i) as isize),
+                            ptr.offset((offset + stride * i) as isize),
+                            row_bytes,
+                        );
+                    }
                 }
             }
 

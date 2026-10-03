@@ -118,12 +118,13 @@ impl OverlapNotifyState {
                                 .toplevel_info_state()
                                 .registered_toplevels()
                                 .filter(|w| {
-                                    let state = w
+                                    let Some(state) = w
                                         .user_data()
                                         .get::<ToplevelState>()
-                                        .unwrap()
-                                        .lock()
-                                        .unwrap();
+                                        .and_then(|s| s.lock().ok())
+                                    else {
+                                        return false;
+                                    };
 
                                     w.is_sticky()
                                         || active_workspaces.iter().any(|active_workspace| {

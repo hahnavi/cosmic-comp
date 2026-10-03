@@ -738,7 +738,8 @@ impl SurfaceThreadState {
 
         if crate::utils::env::bool_var("COSMIC_DISABLE_DIRECT_SCANOUT").unwrap_or(false) {
             self.frame_flags.remove(FrameFlags::ALLOW_SCANOUT);
-        } else if crate::utils::env::bool_var("COSMIC_DISABLE_OVERLAY_SCANOUT").unwrap_or(false) {
+        }
+        if crate::utils::env::bool_var("COSMIC_DISABLE_OVERLAY_SCANOUT").unwrap_or(false) {
             self.frame_flags
                 .remove(FrameFlags::ALLOW_OVERLAY_PLANE_SCANOUT);
         }
@@ -1661,6 +1662,9 @@ fn take_screencopy_frames(
         .into_iter()
         .map(|(session, frame)| {
             let additional_damage = frame.damage();
+            if !additional_damage.is_empty() && output.current_mode().is_none() {
+                return (session, frame, Err(OutputNoMode));
+            }
             let session_data = session.user_data().get::<SessionData>().unwrap();
             let mut damage_tracking = session_data.lock().unwrap();
 

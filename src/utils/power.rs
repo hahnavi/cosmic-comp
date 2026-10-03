@@ -16,10 +16,18 @@
 
 use std::sync::{
     OnceLock,
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use tracing::{debug, warn};
+
+/// Tracks whether the device is currently running on battery.
+static ON_BATTERY: AtomicBool = AtomicBool::new(false);
+
+/// Returns true if the system is currently running on battery power.
+pub fn is_on_battery() -> bool {
+    ON_BATTERY.load(Ordering::Relaxed)
+}
 
 /// Animation frame cap applied while on battery power.
 const BATTERY_CAP_FPS: u64 = 60;
@@ -92,9 +100,10 @@ fn watch_battery() {
     use zbus::fdo::PropertiesProxy;
 
     let apply = |on_battery: bool| {
+        ON_BATTERY.store(on_battery, Ordering::Relaxed);
         let fps = if on_battery { BATTERY_CAP_FPS } else { 0 };
         set_interval_from_fps(fps);
-        debug!(on_battery, "Animation frame cap updated");
+        debug!(on_battery, "Animation frame cap and battery state updated");
     };
 
     let conn = match futures_executor::block_on(zbus::Connection::system()) {

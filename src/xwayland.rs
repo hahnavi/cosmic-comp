@@ -349,23 +349,27 @@ impl Common {
                 self.xwayland_reset_eavesdropping(serial);
 
                 let xstate = self.xwayland_state.as_mut().unwrap();
-                if let Some(mime_types) = xstate.clipboard_selection_dirty.take()
-                    && let Err(err) = xstate
+                if let Some(mime_types) = xstate.clipboard_selection_dirty.take() {
+                    if let Err(err) = xstate
                         .xwm
                         .as_mut()
                         .unwrap()
-                        .new_selection(SelectionTarget::Clipboard, Some(mime_types))
-                {
-                    warn!(?err, "Failed to set Xwayland clipboard selection.");
+                        .new_selection(SelectionTarget::Clipboard, Some(mime_types.clone()))
+                    {
+                        warn!(?err, "Failed to set Xwayland clipboard selection.");
+                        xstate.clipboard_selection_dirty = Some(mime_types);
+                    }
                 }
-                if let Some(mime_types) = xstate.primary_selection_dirty.take()
-                    && let Err(err) = xstate
+                if let Some(mime_types) = xstate.primary_selection_dirty.take() {
+                    if let Err(err) = xstate
                         .xwm
                         .as_mut()
                         .unwrap()
-                        .new_selection(SelectionTarget::Primary, Some(mime_types))
-                {
-                    warn!(?err, "Failed to set Xwayland clipboard selection.");
+                        .new_selection(SelectionTarget::Primary, Some(mime_types.clone()))
+                    {
+                        warn!(?err, "Failed to set Xwayland primary selection.");
+                        xstate.primary_selection_dirty = Some(mime_types);
+                    }
                 }
             }
         }
@@ -440,20 +444,15 @@ impl Common {
                 _ => {}
             }
 
-            xstate.pressed_keys.push(code);
+            if !xstate.pressed_keys.contains(&code) {
+                xstate.pressed_keys.push(code);
+            }
         } else {
-            let mut removed = false;
-            xstate.pressed_keys.retain(|c| {
-                if *c == code {
-                    removed = true;
-                    false
-                } else {
-                    true
-                }
-            });
+            let original_len = xstate.pressed_keys.len();
+            xstate.pressed_keys.retain(|c| *c != code);
 
-            if !removed {
-                // Don't forward released events, we don't have a record off.
+            if xstate.pressed_keys.len() == original_len {
+                // Don't forward released events, we don't have a record of.
                 return;
             }
         }
@@ -499,20 +498,15 @@ impl Common {
 
         let xstate = self.xwayland_state.as_mut().unwrap();
         if state == ButtonState::Pressed {
-            xstate.pressed_buttons.push(button);
+            if !xstate.pressed_buttons.contains(&button) {
+                xstate.pressed_buttons.push(button);
+            }
         } else {
-            let mut removed = false;
-            xstate.pressed_buttons.retain(|b| {
-                if *b == button {
-                    removed = true;
-                    false
-                } else {
-                    true
-                }
-            });
+            let original_len = xstate.pressed_buttons.len();
+            xstate.pressed_buttons.retain(|b| *b != button);
 
-            if !removed {
-                // Don't forward released events, we don't have a record off.
+            if xstate.pressed_buttons.len() == original_len {
+                // Don't forward released events, we don't have a record of.
                 // This can happen if `xwayland_reset_eavesdropping` was called in between
                 return;
             }

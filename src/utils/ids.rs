@@ -1,6 +1,3 @@
-// TODO: Remove once desktop is back
-#![allow(unused)]
-
 macro_rules! id_gen {
     ($func_name:ident, $id_name:ident, $ids_name:ident) => {
         static $id_name: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -10,7 +7,7 @@ macro_rules! id_gen {
         fn $func_name() -> usize {
             let mut ids = $ids_name.lock().unwrap();
             if ids.len() == usize::MAX {
-                panic!("Out of ids");
+                panic!("Out of unique IDs: usize ID space exhausted");
             }
 
             let id = loop {

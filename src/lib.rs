@@ -115,13 +115,22 @@ impl State {
 }
 
 pub fn run(hooks: crate::hooks::Hooks) -> Result<(), Box<dyn Error>> {
+    crate::utils::memory::init_allocator();
+
     let raw_args = RawArgs::from_args();
     let mut cursor = raw_args.cursor();
     raw_args.next_os(&mut cursor);
     let git_hash = option_env!("GIT_HASH").unwrap_or("unknown");
 
     let mut kiosk_command = None;
-    let mut with_xwayland = true;
+    let mut with_xwayland = !std::env::var("COSMIC_NO_XWAYLAND").is_ok()
+        && !std::env::var("COSMIC_DISABLE_XWAYLAND").is_ok()
+        && !std::env::var("COSMIC_XWAYLAND")
+            .map(|v| v == "0" || v.eq_ignore_ascii_case("false"))
+            .unwrap_or(false);
+    if !with_xwayland {
+        tracing::info!("Running without Xwayland (via environment)");
+    }
     // Parse the arguments
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
@@ -194,6 +203,21 @@ pub fn run(hooks: crate::hooks::Hooks) -> Result<(), Box<dyn Error>> {
     if let Err(err) = theme::watch_theme(event_loop.handle()) {
         warn!(?err, "Failed to watch theme");
     }
+
+    // Periodic memory reclamation timer: compact and trim freed pages back to the kernel
+    let mem_trim_timer = Timer::from_duration(Duration::from_secs(60));
+    if let Err(err) = event_loop
+        .handle()
+        .insert_source(mem_trim_timer, |_instant, (), _state| {
+            utils::memory::trim_memory(true);
+            TimeoutAction::ToDuration(Duration::from_secs(60))
+        })
+    {
+        warn!(?err, "Failed to schedule periodic memory trimmer");
+    }
+
+    // Trim initial startup allocations before running the event loop
+    utils::memory::trim_memory(true);
 
     // run the event loop
     event_loop.run(None, &mut state, |state| {

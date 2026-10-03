@@ -171,15 +171,16 @@ pub enum ColorFilter {
     Tritanopia = 4,
 }
 
+enum ConfigUpdate {
+    Comp(cosmic_config::Config, Vec<String>),
+    Tk(cosmic_config::Config, Vec<String>),
+    Shortcuts(cosmic_config::Config, Vec<String>),
+    WindowRules(cosmic_config::Config, Vec<String>),
+}
+
 impl Config {
     pub fn load(loop_handle: &LoopHandle<'_, State>) -> Config {
         let config = cosmic_config::Config::new("com.system76.CosmicComp", 1).unwrap();
-        let source = cosmic_config::calloop::ConfigWatchSource::new(&config).unwrap();
-        loop_handle
-            .insert_source(source, |(config, keys), (), state| {
-                config_changed(config, keys, state);
-            })
-            .expect("Failed to add cosmic-config to the event loop");
         let xdg = xdg::BaseDirectories::new();
 
         let cosmic_comp_config =
@@ -192,23 +193,24 @@ impl Config {
                 c
             });
 
-        // Listen for updates to the toolkit config
-        if let Ok(tk_config) = cosmic_config::Config::new("com.system76.CosmicTk", 1) {
-            fn handle_new_toolkit_config(config: CosmicTk, state: &mut State) {
-                if cosmic::icon_theme::default() != config.icon_theme {
-                    cosmic::icon_theme::set_default(config.icon_theme.clone());
-                    state.common.update_xwayland_settings();
-                }
-
-                let mut workspace_guard = state.common.workspace_state.update();
-                state.common.shell.write().update_toolkit(
-                    config,
-                    &state.common.xdg_activation_state,
-                    &mut workspace_guard,
-                );
+        fn handle_new_toolkit_config(config: CosmicTk, state: &mut State) {
+            if cosmic::icon_theme::default() != config.icon_theme {
+                cosmic::icon_theme::set_default(config.icon_theme.clone());
+                state.common.update_xwayland_settings();
             }
 
-            let config = CosmicTk::get_entry(&tk_config).unwrap_or_else(|(errs, c)| {
+            let mut workspace_guard = state.common.workspace_state.update();
+            state.common.shell.write().update_toolkit(
+                config,
+                &state.common.xdg_activation_state,
+                &mut workspace_guard,
+            );
+        }
+
+        // Listen for updates to the toolkit config
+        let tk_config = cosmic_config::Config::new("com.system76.CosmicTk", 1).ok();
+        if let Some(ref tk) = tk_config {
+            let config = CosmicTk::get_entry(tk).unwrap_or_else(|(errs, c)| {
                 if cfg!(debug_assertions) {
                     for err in errs {
                         warn!(?err, "");
@@ -219,31 +221,6 @@ impl Config {
             let _ = loop_handle.insert_idle(move |state| {
                 handle_new_toolkit_config(config, state);
             });
-
-            match cosmic_config::calloop::ConfigWatchSource::new(&tk_config) {
-                Ok(source) => {
-                    if let Err(err) =
-                        loop_handle.insert_source(source, |(config, _keys), (), state| {
-                            let config =
-                                CosmicTk::get_entry(&config).unwrap_or_else(|(errs, c)| {
-                                    if cfg!(debug_assertions) {
-                                        for err in errs {
-                                            warn!(?err, "");
-                                        }
-                                    }
-                                    c
-                                });
-                            handle_new_toolkit_config(config, state);
-                        })
-                    {
-                        warn!(?err, "Failed to watch com.system76.CosmicTk config");
-                    }
-                }
-                Err(err) => warn!(
-                    ?err,
-                    "failed to create config watch source for com.system76.CosmicTk"
-                ),
-            }
         }
 
         // Source key bindings from com.system76.CosmicSettings.Shortcuts
@@ -251,45 +228,106 @@ impl Config {
         let system_actions = shortcuts::system_actions(&settings_context);
         let shortcuts = shortcuts::shortcuts(&settings_context);
 
-        // Listen for updates to the keybindings config.
-        match cosmic_config::calloop::ConfigWatchSource::new(&settings_context) {
-            Ok(source) => {
-                if let Err(err) = loop_handle.insert_source(source, |(config, keys), (), state| {
-                    for key in keys {
-                        match key.as_str() {
-                            // Reload the keyboard shortcuts config.
-                            "custom" | "defaults" => {
-                                state.common.config.shortcuts = shortcuts::shortcuts(&config);
-                            }
-
-                            "system_actions" => {
-                                state.common.config.system_actions =
-                                    shortcuts::system_actions(&config);
-                            }
-
-                            _ => (),
-                        }
-                    }
-                }) {
-                    warn!(
-                        ?err,
-                        "Failed to watch com.system76.CosmicSettings.Shortcuts config"
-                    );
-                }
-            }
-            Err(err) => warn!(
-                ?err,
-                "failed to create config watch source for com.system76.CosmicSettings.Shortcuts"
-            ),
-        };
-
         let window_rules_context =
             window_rules::context().expect("Failed to load window rules config");
         let tiling_exceptions = window_rules::tiling_exceptions(&window_rules_context);
 
-        match cosmic_config::calloop::ConfigWatchSource::new(&window_rules_context) {
-            Ok(source) => {
-                if let Err(err) = loop_handle.insert_source(source, |(config, keys), (), state| {
+        // Unified config watcher: replace 4 separate inotify threads with a single thread
+        let (config_tx, config_rx) = calloop::channel::sync_channel::<ConfigUpdate>(64);
+        let cosmic_dir = xdg::BaseDirectories::with_prefix("cosmic")
+            .get_config_home()
+            .unwrap_or_else(|| PathBuf::from("/etc/cosmic"));
+        let cosmic_dir_clone = cosmic_dir.clone();
+
+        let comp_cfg = config.clone();
+        let tk_cfg = tk_config.clone();
+        let shortcuts_cfg = settings_context.clone();
+        let rules_cfg = window_rules_context.clone();
+
+        let mut watcher =
+            notify::recommended_watcher(move |event_res: Result<notify::Event, notify::Error>| {
+                if let Ok(event) = event_res {
+                    match &event.kind {
+                        notify::EventKind::Access(_)
+                        | notify::EventKind::Modify(notify::event::ModifyKind::Metadata(_)) => {
+                            return;
+                        }
+                        _ => {}
+                    }
+                    for path in &event.paths {
+                        if let Ok(rel) = path.strip_prefix(&cosmic_dir_clone) {
+                            let mut components = rel.components();
+                            if let Some(std::path::Component::Normal(app)) = components.next() {
+                                let app_str = app.to_str().unwrap_or_default();
+                                let key = path
+                                    .file_name()
+                                    .and_then(|f| f.to_str())
+                                    .unwrap_or_default()
+                                    .to_string();
+                                if !key.is_empty() {
+                                    if app_str == "com.system76.CosmicComp" {
+                                        let _ = config_tx
+                                            .send(ConfigUpdate::Comp(comp_cfg.clone(), vec![key]));
+                                    } else if app_str == "com.system76.CosmicTk" {
+                                        if let Some(ref cfg) = tk_cfg {
+                                            let _ = config_tx
+                                                .send(ConfigUpdate::Tk(cfg.clone(), vec![key]));
+                                        }
+                                    } else if app_str == "com.system76.CosmicSettings.Shortcuts" {
+                                        let _ = config_tx.send(ConfigUpdate::Shortcuts(
+                                            shortcuts_cfg.clone(),
+                                            vec![key],
+                                        ));
+                                    } else if app_str == "com.system76.CosmicSettings.WindowRules" {
+                                        let _ = config_tx.send(ConfigUpdate::WindowRules(
+                                            rules_cfg.clone(),
+                                            vec![key],
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+        use notify::Watcher;
+        if let Ok(ref mut w) = watcher {
+            let _ = std::fs::create_dir_all(&cosmic_dir);
+            let _ = w.watch(&cosmic_dir, notify::RecursiveMode::Recursive);
+        }
+
+        loop_handle
+            .insert_source(config_rx, |event, (), state| match event {
+                calloop::channel::Event::Msg(ConfigUpdate::Comp(config, keys)) => {
+                    config_changed(config, keys, state);
+                }
+                calloop::channel::Event::Msg(ConfigUpdate::Tk(config, _keys)) => {
+                    let config = CosmicTk::get_entry(&config).unwrap_or_else(|(errs, c)| {
+                        if cfg!(debug_assertions) {
+                            for err in errs {
+                                warn!(?err, "");
+                            }
+                        }
+                        c
+                    });
+                    handle_new_toolkit_config(config, state);
+                }
+                calloop::channel::Event::Msg(ConfigUpdate::Shortcuts(config, keys)) => {
+                    for key in keys {
+                        match key.as_str() {
+                            "custom" | "defaults" => {
+                                state.common.config.shortcuts = shortcuts::shortcuts(&config);
+                            }
+                            "system_actions" => {
+                                state.common.config.system_actions =
+                                    shortcuts::system_actions(&config);
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                calloop::channel::Event::Msg(ConfigUpdate::WindowRules(config, keys)) => {
                     for key in keys {
                         match key.as_str() {
                             "tiling_exception_defaults" | "tiling_exception_custom" => {
@@ -302,18 +340,14 @@ impl Config {
                             _ => (),
                         }
                     }
-                }) {
-                    warn!(
-                        ?err,
-                        "Failed to watch com.system76.CosmicSettings.WindowRules config"
-                    );
                 }
-            }
-            Err(err) => warn!(
-                ?err,
-                "failed to create config watch source for com.system76.CosmicSettings.WindowRules"
-            ),
-        };
+                calloop::channel::Event::Closed => {}
+            })
+            .expect("Failed to add unified config watcher to event loop");
+
+        if let Ok(w) = watcher {
+            std::mem::forget(w);
+        }
 
         let _ = loop_handle.insert_idle(|state| {
             let filter_conf = state.common.config.dynamic_conf.screen_filter();

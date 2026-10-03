@@ -693,7 +693,11 @@ impl Workspace {
         None
     }
 
-    pub fn unmap_surface<S>(&mut self, surface: &S) -> Option<(CosmicSurface, WorkspaceRestoreData)>
+    pub fn unmap_surface<S>(
+        &mut self,
+        surface: &S,
+        closing: bool,
+    ) -> Option<(CosmicSurface, WorkspaceRestoreData)>
     where
         CosmicSurface: PartialEq<S>,
     {
@@ -750,6 +754,9 @@ impl Workspace {
         // so we can treat mapped as containing only our surface.
 
         let mapped = mapped.clone();
+        if closing {
+            mapped.start_fade_out();
+        }
         let layer = self.unmap_element(&mapped)?;
         Some((mapped.active_window(), layer))
     }

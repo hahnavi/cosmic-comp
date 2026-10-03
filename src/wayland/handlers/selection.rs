@@ -36,7 +36,15 @@ impl SelectionHandler for State {
         if let Some(source) = &source {
             if x_has_focus {
                 if let Err(err) = xwm.new_selection(target, Some(source.mime_types())) {
-                    warn!(?err, "Failed to set Xwayland clipboard selection.");
+                    warn!(?err, "Failed to set Xwayland selection.");
+                    match target {
+                        SelectionTarget::Clipboard => {
+                            xstate.clipboard_selection_dirty = Some(source.mime_types())
+                        }
+                        SelectionTarget::Primary => {
+                            xstate.primary_selection_dirty = Some(source.mime_types())
+                        }
+                    };
                 }
             } else {
                 match target {

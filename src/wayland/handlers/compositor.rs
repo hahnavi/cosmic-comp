@@ -118,7 +118,7 @@ pub fn frame_time_estimation(clock: &Clock<Monotonic>, states: &SurfaceData) -> 
         .data_map
         .get::<Mutex<FrametimeData>>()?
         .lock()
-        .unwrap();
+        .unwrap_or_else(|e| e.into_inner());
     if let Some(ref last) = data.last_commit {
         // if the time since the last commit is already higher than our estimation,
         // there is no reason to not use that as a better "guess"
@@ -242,7 +242,7 @@ impl CompositorHandler for State {
                     .data_map
                     .get_or_insert_threadsafe::<Mutex<FrametimeData>, _>(Default::default)
                     .lock()
-                    .unwrap();
+                    .unwrap_or_else(|e| e.into_inner());
                 if let Some(ref last) = data.last_commit {
                     let diff = Time::elapsed(last, now);
                     data.last_diffs.push_back(diff);

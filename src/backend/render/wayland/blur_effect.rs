@@ -505,18 +505,25 @@ impl BlurElement {
         let src = geometry.size.to_buffer(output_scale, Transform::Normal);
         let params = &BLUR_PARAMS[strength.min(MAX_STEPS - 1)];
 
+        let on_battery = crate::utils::power::is_on_battery();
+        let target_passes = if on_battery {
+            params.passes.min(2)
+        } else {
+            params.passes
+        };
+
         let dirty = !(state
             .renderer_id
             .as_ref()
             .is_some_and(|id| id == &renderer_id)
             && state.offset == params.offset
-            && state.passes == params.passes
+            && state.passes == target_passes
             && &state.region == region
             && state.src == src);
 
         state.renderer_id = Some(renderer_id);
         state.offset = params.offset;
-        state.passes = params.passes;
+        state.passes = target_passes;
         state.region = region.clone();
         state.src = src;
         if dirty {
@@ -822,7 +829,8 @@ fn render_blur(
     passes: usize,
     window: Option<Rectangle<i32, Buffer>>,
 ) -> Result<(), GlesError> {
-    let windows = window.map(|window| blur_level_windows(textures[0].size(), window, offset, passes));
+    let windows =
+        window.map(|window| blur_level_windows(textures[0].size(), window, offset, passes));
     let windows = windows.as_deref();
 
     for i in 0..passes {
@@ -913,10 +921,7 @@ fn render_blur(
             Some(windows) => (
                 windows[passes - i].to_f64(),
                 Rectangle::new(
-                    Point::from((
-                        windows[passes - i - 1].loc.x,
-                        windows[passes - i - 1].loc.y,
-                    )),
+                    Point::from((windows[passes - i - 1].loc.x, windows[passes - i - 1].loc.y)),
                     Size::from((
                         windows[passes - i - 1].size.w,
                         windows[passes - i - 1].size.h,
@@ -1017,7 +1022,10 @@ mod tests {
         let tex_size = Size::from((1000, 200));
         let dst = Rectangle::new(Point::from((0, 0)), Size::from((1000, 200)));
 
-        let damage = [Rectangle::new(Point::from((400, 80)), Size::from((100, 40)))];
+        let damage = [Rectangle::new(
+            Point::from((400, 80)),
+            Size::from((100, 40)),
+        )];
         let window = damage_capture_window(&damage, dst, tex_size, 30).unwrap();
         assert!(window.loc.x <= 370 && window.loc.x + window.size.w >= 530);
         assert!(window.loc.y <= 50 && window.loc.y + window.size.h >= 150);

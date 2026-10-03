@@ -55,6 +55,10 @@ impl Window for CosmicSurface {
         CosmicSurface::is_resizing(self, true).unwrap_or(false)
     }
 
+    fn is_decorated(&self) -> bool {
+        CosmicSurface::is_decorated(self, false)
+    }
+
     fn global_geometry(&self) -> Option<Rectangle<i32, Global>> {
         CosmicSurface::global_geometry(self)
     }

@@ -660,40 +660,37 @@ impl WorkspaceSet {
 
         // remove other empty workspaces
         let len = self.workspaces.len();
-        let kept: Vec<bool> = self
-            .workspaces
-            .iter()
-            .enumerate()
-            .map(|(i, workspace)| {
-                let previous_is_empty = i > 0
-                    && self
-                        .workspaces
-                        .get(i - 1)
-                        .is_some_and(|w| w.is_empty() && !w.pinned);
-                let keep = if workspace.can_auto_remove(xdg_activation_state) {
-                    // Keep empty workspace if it's active, or it's the last workspace,
-                    // and the previous worspace is not both active and empty.
-                    i == self.active
-                        || (i == len - 1 && !(i == self.active + 1 && previous_is_empty))
-                } else {
-                    true
-                };
-                if !keep {
-                    state.remove_workspace(workspace.handle);
+        let mut removed_handles = smallvec::SmallVec::<[WorkspaceHandle; 4]>::new();
+        let mut removed_before_active = 0;
+
+        for (i, workspace) in self.workspaces.iter().enumerate() {
+            let previous_is_empty = i > 0
+                && self
+                    .workspaces
+                    .get(i - 1)
+                    .is_some_and(|w| w.is_empty() && !w.pinned);
+            let keep = if workspace.can_auto_remove(xdg_activation_state) {
+                // Keep empty workspace if it's active, or it's the last workspace,
+                // and the previous worspace is not both active and empty.
+                i == self.active || (i == len - 1 && !(i == self.active + 1 && previous_is_empty))
+            } else {
+                true
+            };
+            if !keep {
+                removed_handles.push(workspace.handle);
+                if i <= self.active {
+                    removed_before_active += 1;
                 }
-                keep
-            })
-            .collect();
+            }
+        }
 
-        let mut iter = kept.iter();
-        self.workspaces.retain(|_| *iter.next().unwrap());
-        self.active -= kept
-            .iter()
-            .take(self.active + 1)
-            .filter(|kept| !**kept)
-            .count();
-
-        if kept.iter().any(|val| !(*val)) {
+        if !removed_handles.is_empty() {
+            for handle in &removed_handles {
+                state.remove_workspace(*handle);
+            }
+            self.workspaces
+                .retain(|w| !removed_handles.contains(&w.handle));
+            self.active -= removed_before_active;
             self.update_workspace_idxs(state);
         }
     }
@@ -2995,6 +2992,7 @@ impl Shell {
             self.theme.clone(),
             self.appearance_conf,
         ));
+        mapped.start_fade_in();
         #[cfg(feature = "debug")]
         {
             mapped.set_debug(self.debug_active);
@@ -3113,8 +3111,13 @@ impl Shell {
             });
             let surface = if let Some((idx, mapped)) = sticky_res {
                 if let Some(stack) = mapped.stack_ref() {
+                    if stack.len() <= 1 {
+                        mapped.start_fade_out();
+                        set.sticky_layer.unmap(&mapped, None);
+                    }
                     stack.remove_idx(idx)
                 } else {
+                    mapped.start_fade_out();
                     set.sticky_layer.unmap(&mapped, None);
                     Some(mapped.active_window())
                 }
@@ -3144,7 +3147,7 @@ impl Shell {
             } else if let Some((surface, _)) = set
                 .workspaces
                 .iter_mut()
-                .find_map(|w| w.unmap_surface(surface))
+                .find_map(|w| w.unmap_surface(surface, true))
             {
                 Some(surface)
             } else {
@@ -3350,7 +3353,7 @@ impl Shell {
                 },
             ))
         } else {
-            from_workspace.unmap_surface(window)?.1
+            from_workspace.unmap_surface(window, false)?.1
         };
 
         toplevel_leave_workspace(window, from);
@@ -4985,7 +4988,7 @@ impl Shell {
             mapped.set_fullscreen(true);
 
             let from = workspace.element_geometry(&mapped).unwrap();
-            let (surface, state) = workspace.unmap_surface(surface).unwrap();
+            let (surface, state) = workspace.unmap_surface(surface, false).unwrap();
             window = surface;
             let handle = workspace.handle;
 
