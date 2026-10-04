@@ -4,15 +4,15 @@ edition = "2024"
 license = "GPL-3.0-only"
 name = "cosmic-comp"
 version = "1.0.0"
-rust-version = "1.93"
+rust-version = "1.99"
 
 [workspace]
 members = ["cosmic-comp-config"]
 
 [dependencies]
 anyhow = { version = "1.0.102", features = ["backtrace"] }
-bitflags = "2.11.0"
-calloop = { version = "0.14.4", features = ["executor", "stream"] }
+bitflags = "2.13.2"
+calloop = { version = "0.14.5", features = ["executor", "stream"] }
 cosmic-comp-config = { path = "cosmic-comp-config", features = [
     "libdisplay-info",
     "output",
@@ -32,8 +32,8 @@ cosmic-text = { version = "0.19", features = [
     "shape-run-cache",
 ] }
 libdisplay-info = "0.3.0"
-egui = { version = "0.31.1", optional = true }
-egui_plot = { version = "0.31.0", optional = true }
+egui = { version = "0.36.2", optional = true }
+egui_plot = { version = "0.37.0", optional = true }
 i18n-embed = { version = "0.16", features = [
     "fluent-system",
     "desktop-requester",
@@ -41,7 +41,7 @@ i18n-embed = { version = "0.16", features = [
 i18n-embed-fl = "0.10"
 iced_tiny_skia = { git = "https://github.com/hahnavi/libcosmic.git", branch = "hahnavi" }
 iced_graphics = { git = "https://github.com/hahnavi/libcosmic.git", branch = "hahnavi", features = ["geometry"] }
-indexmap = "2.13"
+indexmap = "2.14.2"
 keyframe = "1.1.1"
 libcosmic = { git = "https://github.com/hahnavi/libcosmic.git", branch = "hahnavi", default-features = false, features = [
     "tiny-skia",
@@ -51,15 +51,15 @@ log-panics = { version = "2", features = ["with-backtrace"] }
 ordered-float = "5.1"
 png = "0.18"
 regex = "1"
-resvg = "0.45"
+resvg = "0.48.1"
 ron = "0.12"
 rust-embed = { version = "8.11", features = ["debug-embed"] }
 sanitize-filename = "0.6.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thiserror = "2.0.18"
+thiserror = "2.0.21"
 jiff = "0.2"
-tiny-skia = "0.11"
+tiny-skia = "0.11.4"
 tracing = { version = "0.1.44", features = [
     "max_level_debug",
     "release_max_level_info",
@@ -78,7 +78,7 @@ xdg-user = "0.2.1"
 xkbcommon = "0.9"
 zbus = "5.14.0"
 profiling = { version = "1.0" }
-rustix = { version = "1.1.4", features = ["process"] }
+rustix = { version = "1.1.5", features = ["process"] }
 rand = "0.10"
 # CLI arguments
 clap_lex = "1.0"
@@ -89,7 +89,7 @@ libmimalloc-sys = { version = "0.1", features = ["extended"] }
 notify = "8"
 futures-executor = { version = "0.3.32" }
 futures-util = "0.3.32"
-glam = { version = "0.33", default-features = false, features = ["std"] }
+glam = { version = "0.33.12", default-features = false, features = ["std"] }
 smallvec = "1.15.2"
 
 [dependencies.id_tree]
@@ -167,4 +167,5 @@ cosmic-theme = { git = "https://github.com/hahnavi/libcosmic.git", branch = "hah
 
 [patch.crates-io]
 smithay = { git = "https://github.com/hahnavi/smithay.git", branch = "hahnavi" }
+# smithay = { path = "../smithay" }
 smithay-egui = { git = "https://github.com/Smithay/smithay-egui.git", rev = "6511552" }

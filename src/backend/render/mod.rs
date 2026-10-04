@@ -17,7 +17,6 @@ use crate::{
     backend::{
         kms::render::gles::GbmGlowBackend,
         render::{
-            element::DamageElement,
             shadow::{SHADOW_SHADER, ShadowShader},
             wayland::{
                 SurfaceRenderElement,
@@ -81,7 +80,7 @@ use smithay::{
     input::Seat,
     output::{Output, OutputModeSource, OutputNoMode},
     utils::{
-        IsAlive, Logical, Monotonic, Physical, Point, Rectangle, Scale, Size, Time, Transform,
+        IsAlive, Monotonic, Physical, Point, Rectangle, Scale, Size, Time, Transform,
     },
     wayland::{compositor::with_states, dmabuf::get_dmabuf, session_lock::LockSurface},
 };
@@ -1434,64 +1433,59 @@ where
     };
 
     match result {
-        Ok((res, mut elements)) => {
+        Ok((res, elements)) => {
             for (session, frame) in output.take_pending_frames() {
                 if let Some(pending_image_copy_data) = render_session(
                     renderer,
                     session.user_data().get::<SessionData>().unwrap(),
                     frame,
                     output.current_transform(),
-                    |buffer, renderer, offscreen, dt, age, additional_damage| {
-                        let old_len = if !additional_damage.is_empty() {
-                            let area = output
-                                .current_mode()
-                                .ok_or(RenderError::OutputNoMode(OutputNoMode))
-                                .map(
-                                    |mode| {
-                                        mode.size
-                                            .to_logical(1)
-                                            .to_buffer(1, Transform::Normal)
-                                            .to_f64()
-                                    }, /* TODO: Mode is Buffer..., why is this Physical in the first place */
-                                )?;
-
-                            let old_len = elements.len();
-                            let additional_damage_elements: Vec<_> = additional_damage
-                                .into_iter()
-                                .map(|rect| {
-                                    rect.to_f64()
-                                        .to_logical(
-                                            output.current_scale().fractional_scale(),
-                                            output.current_transform(),
-                                            &area,
-                                        )
-                                        .to_i32_round()
-                                })
-                                .map(DamageElement::new)
-                                .collect();
-                            dt.damage_output(age, &additional_damage_elements)?;
-
-                            Some(old_len)
-                        } else {
-                            None
-                        };
+                    |buffer, renderer, offscreen, dt, age, client_damage| {
+                        let client_damage: Vec<Rectangle<i32, Physical>> =
+                            if client_damage.is_empty() {
+                                Vec::new()
+                            } else {
+                                let area = output
+                                    .current_mode()
+                                    .ok_or(RenderError::OutputNoMode(OutputNoMode))
+                                    .map(
+                                        |mode| {
+                                            mode.size
+                                                .to_logical(1)
+                                                .to_buffer(1, Transform::Normal)
+                                                .to_f64()
+                                        }, /* TODO: Mode is Buffer..., why is this Physical in the first place */
+                                    )?;
+                                let scale = output.current_scale().fractional_scale();
+                                client_damage
+                                    .iter()
+                                    .map(|rect| {
+                                        rect.to_f64()
+                                            .to_logical(scale, output.current_transform(), &area)
+                                            .to_physical(scale)
+                                            .to_i32_round()
+                                    })
+                                    .collect()
+                            };
 
                         let res = dt.damage_output(age, &elements)?;
 
-                        if let Some(old_len) = old_len {
-                            elements.truncate(old_len);
-                        }
-
                         let mut sync = SyncPoint::default();
 
-                        if let (Some(damage), _) = &res {
+                        let tracked_damage: &[Rectangle<i32, Physical>] =
+                            res.0.map(|x| x.as_slice()).unwrap_or(&[]);
+
+                        if !tracked_damage.is_empty() || !client_damage.is_empty() {
                             // TODO: On Vulkan, may need to combine sync points instead of just using latest?
                             let blit_to_buffer =
                                 |renderer: &mut R, blit_from: &mut R::Framebuffer<'_>| {
                                     if let Ok(dmabuf) = get_dmabuf(buffer) {
                                         let mut dmabuf_clone = dmabuf.clone();
                                         let mut fb = renderer.bind(&mut dmabuf_clone)?;
-                                        for rect in damage.iter() {
+                                        for rect in tracked_damage
+                                            .iter()
+                                            .chain(client_damage.iter())
+                                        {
                                             sync = renderer.blit(
                                                 blit_from,
                                                 &mut fb,
@@ -1503,7 +1497,10 @@ where
                                     } else {
                                         let fb = offscreen
                                             .expect("shm buffers should have offscreen target");
-                                        for rect in damage.iter() {
+                                        for rect in tracked_damage
+                                            .iter()
+                                            .chain(client_damage.iter())
+                                        {
                                             sync = renderer.blit(
                                                 blit_from,
                                                 fb,
@@ -1562,7 +1559,7 @@ pub fn render_workspace<'d, R>(
     target: &mut R::Framebuffer<'_>,
     damage_tracker: &'d mut OutputDamageTracker,
     age: usize,
-    additional_damage: Option<Vec<Rectangle<i32, Logical>>>,
+    hidden_damage: Option<&[Rectangle<i32, Physical>]>,
     shell: &Arc<parking_lot::RwLock<Shell>>,
     zoom_level: Option<&ZoomState>,
     now: Time<Monotonic>,
@@ -1579,17 +1576,7 @@ where
     CosmicMappedRenderElement<R>: RenderElement<R>,
     WorkspaceRenderElement<R>: RenderElement<R>,
 {
-    let mut elements: Vec<CosmicElement<R>> = if let Some(additional_damage) = additional_damage {
-        let output_geo = output.geometry().to_local(output).as_logical();
-        additional_damage
-            .into_iter()
-            .filter_map(|rect| rect.intersection(output_geo))
-            .map(DamageElement::new)
-            .map(CosmicElement::from)
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let mut elements: Vec<CosmicElement<R>> = Vec::new();
 
     elements.extend(workspace_elements(
         gpu,
@@ -1605,13 +1592,23 @@ where
         None,
     )?);
 
-    let res = damage_tracker.render_output(
-        renderer,
-        target,
-        age,
-        &elements,
-        CLEAR_COLOR, // TODO use a theme neutral color
-    );
+    let res = match hidden_damage {
+        Some(hidden_damage) => damage_tracker.render_output_with_hidden_damage(
+            renderer,
+            target,
+            age,
+            &elements,
+            CLEAR_COLOR, // TODO use a theme neutral color
+            hidden_damage,
+        ),
+        None => damage_tracker.render_output(
+            renderer,
+            target,
+            age,
+            &elements,
+            CLEAR_COLOR, // TODO use a theme neutral color
+        ),
+    };
 
     res.map(|res| (res, elements))
 }

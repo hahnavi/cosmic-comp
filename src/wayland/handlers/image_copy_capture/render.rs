@@ -122,6 +122,7 @@ pub fn submit_buffer<R>(
     renderer: &mut R,
     offscreen: Option<&mut R::Framebuffer<'_>>,
     transform: Transform,
+    needs_refresh: bool,
     damage: Option<&[Rectangle<i32, Physical>]>,
     mut sync: SyncPoint,
     buffers: Vec<smithay::backend::renderer::utils::Buffer>,
@@ -129,16 +130,16 @@ pub fn submit_buffer<R>(
 where
     R: ExportMem + AsGlowRenderer,
 {
-    let Some(damage) = damage else {
+    if !needs_refresh {
         frame.success(
             transform,
-            None,
+            Vec::new(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or(Duration::ZERO),
         );
         return Ok(None);
-    };
+    }
 
     let buffer = frame.buffer();
     let buffer_size = buffer_dimensions(&buffer).unwrap();
@@ -208,7 +209,8 @@ where
     Ok(Some(PendingImageCopyData {
         frame,
         damage: damage
-            .iter()
+            .into_iter()
+            .flatten()
             .map(|rect| {
                 let logical = rect.to_logical(1);
                 logical.to_buffer(1, transform.invert(), &buffer_size.to_logical(1, transform))
@@ -285,13 +287,15 @@ where
         .as_mut()
         .map(|(_, tex)| renderer.bind(tex).map_err(DTError::Rendering))
         .transpose()?;
+    let client_damage = frame.damage();
+    let client_has_damage = !client_damage.is_empty();
     let (result, buffers) = render_fn(
         &frame.buffer(),
         renderer,
         fb.as_mut(),
         dt,
         age,
-        frame.damage(),
+        client_damage,
     )?;
 
     submit_buffer(
@@ -299,6 +303,7 @@ where
         renderer,
         fb.as_mut(),
         transform,
+        client_has_damage || result.damage.is_some_and(|d| !d.is_empty()),
         result.damage.map(|x| x.as_slice()),
         result.sync,
         buffers,
@@ -346,7 +351,7 @@ pub fn render_workspace_to_buffer(
         offscreen: Option<&mut R::Framebuffer<'_>>,
         dt: &'d mut OutputDamageTracker,
         age: usize,
-        additional_damage: Vec<Rectangle<i32, BufferCoords>>,
+        client_damage: Vec<Rectangle<i32, BufferCoords>>,
         draw_cursor: bool,
         common: &mut Common,
         output: &Output,
@@ -382,19 +387,17 @@ pub fn render_workspace_to_buffer(
                         .to_f64()
                 }, /* TODO: Mode is Buffer..., why is this Physical in the first place */
             )?;
-        let additional_damage = (!additional_damage.is_empty()).then(|| {
-            additional_damage
-                .into_iter()
+        let scale = output.current_scale().fractional_scale();
+        let client_hidden_damage = (!client_damage.is_empty()).then(|| {
+            client_damage
+                .iter()
                 .map(|rect| {
                     rect.to_f64()
-                        .to_logical(
-                            output.current_scale().fractional_scale(),
-                            output.current_transform(),
-                            &area,
-                        )
+                        .to_logical(scale, output.current_transform(), &area)
+                        .to_physical(scale)
                         .to_i32_round()
                 })
-                .collect()
+                .collect::<Vec<_>>()
         });
 
         let (res, elements) = if let Ok(dmabuf) = get_dmabuf(buffer) {
@@ -406,7 +409,7 @@ pub fn render_workspace_to_buffer(
                 &mut fb,
                 dt,
                 age,
-                additional_damage,
+                client_hidden_damage.as_deref(),
                 &common.shell,
                 None,
                 common.clock.now(),
@@ -424,7 +427,7 @@ pub fn render_workspace_to_buffer(
                 target,
                 dt,
                 age,
-                additional_damage,
+                client_hidden_damage.as_deref(),
                 &common.shell,
                 None,
                 common.clock.now(),
@@ -587,7 +590,7 @@ pub fn render_window_to_buffer(
         offscreen: Option<&mut R::Framebuffer<'_>>,
         dt: &'d mut OutputDamageTracker,
         age: usize,
-        additional_damage: Vec<Rectangle<i32, BufferCoords>>,
+        client_damage: Vec<Rectangle<i32, BufferCoords>>,
         draw_cursor: bool,
         common: &mut Common,
         toplevel: &CosmicSurface,
@@ -605,19 +608,20 @@ pub fn render_window_to_buffer(
         CosmicElement<R>: RenderElement<R>,
         CosmicMappedRenderElement<R>: RenderElement<R>,
     {
-        let mut elements: Vec<_> = additional_damage
-            .into_iter()
+        let client_hidden_damage: Vec<Rectangle<i32, Physical>> = client_damage
+            .iter()
             .filter_map(|rect| {
                 let logical_rect = rect.to_logical(
                     1,
                     Transform::Normal,
                     &geometry.size.to_buffer(1, Transform::Normal),
                 );
-                logical_rect.intersection(Rectangle::from_size(geometry.size))
+                logical_rect
+                    .intersection(Rectangle::from_size(geometry.size))
+                    .map(|rect| rect.to_physical(1))
             })
-            .map(DamageElement::new)
-            .map(WindowCaptureElement::<R>::from)
             .collect();
+        let mut elements: Vec<WindowCaptureElement<R>> = Vec::new();
 
         let shell = common.shell.read();
         let blur_strength = 9; // TODO
@@ -709,10 +713,24 @@ pub fn render_window_to_buffer(
             let mut fb = renderer
                 .bind(&mut dmabuf_clone)
                 .map_err(DTError::Rendering)?;
-            dt.render_output(renderer, &mut fb, age, &elements, Color32F::TRANSPARENT)?
+            dt.render_output_with_hidden_damage(
+                renderer,
+                &mut fb,
+                age,
+                &elements,
+                Color32F::TRANSPARENT,
+                &client_hidden_damage,
+            )?
         } else {
             let fb = offscreen.expect("shm buffer should have an offscreen target");
-            dt.render_output(renderer, fb, age, &elements, Color32F::TRANSPARENT)?
+            dt.render_output_with_hidden_damage(
+                renderer,
+                fb,
+                age,
+                &elements,
+                Color32F::TRANSPARENT,
+                &client_hidden_damage,
+            )?
         };
 
         let buffers = render_element_buffers(renderer, &elements);
@@ -844,7 +862,7 @@ pub fn render_cursor_to_buffer(
         offscreen: Option<&mut R::Framebuffer<'_>>,
         dt: &'d mut OutputDamageTracker,
         age: usize,
-        additional_damage: Vec<Rectangle<i32, BufferCoords>>,
+        client_damage: Vec<Rectangle<i32, BufferCoords>>,
         common: &mut Common,
         seat: &Seat<State>,
     ) -> Result<
@@ -860,15 +878,16 @@ pub fn render_cursor_to_buffer(
         CosmicElement<R>: RenderElement<R>,
         CosmicMappedRenderElement<R>: RenderElement<R>,
     {
-        let mut elements: Vec<_> = additional_damage
-            .into_iter()
+        let client_hidden_damage: Vec<Rectangle<i32, Physical>> = client_damage
+            .iter()
             .filter_map(|rect| {
                 let logical_rect = rect.to_logical(1, Transform::Normal, &Size::from((64, 64)));
-                logical_rect.intersection(Rectangle::from_size((64, 64).into()))
+                logical_rect
+                    .intersection(Rectangle::from_size((64, 64).into()))
+                    .map(|rect| rect.to_physical(1))
             })
-            .map(DamageElement::new)
-            .map(WindowCaptureElement::from)
             .collect();
+        let mut elements: Vec<WindowCaptureElement<R>> = Vec::new();
 
         cursor::draw_cursor(
             renderer,
@@ -891,10 +910,24 @@ pub fn render_cursor_to_buffer(
             let mut fb = renderer
                 .bind(&mut dmabuf_clone)
                 .map_err(DTError::Rendering)?;
-            dt.render_output(renderer, &mut fb, age, &elements, [0.0, 0.0, 0.0, 0.0])?
+            dt.render_output_with_hidden_damage(
+                renderer,
+                &mut fb,
+                age,
+                &elements,
+                [0.0, 0.0, 0.0, 0.0],
+                &client_hidden_damage,
+            )?
         } else {
             let fb = offscreen.expect("shm buffers should have offscreen target");
-            dt.render_output(renderer, fb, age, &elements, [0.0, 0.0, 0.0, 0.0])?
+            dt.render_output_with_hidden_damage(
+                renderer,
+                fb,
+                age,
+                &elements,
+                [0.0, 0.0, 0.0, 0.0],
+                &client_hidden_damage,
+            )?
         };
 
         let buffers = render_element_buffers(renderer, &elements);

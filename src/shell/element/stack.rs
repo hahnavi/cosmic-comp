@@ -326,7 +326,7 @@ impl CosmicStack {
                     if !p.group_focused.load(Ordering::SeqCst) {
                         if let Ok(old) =
                             p.active
-                                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |val| {
+                                .try_update(Ordering::SeqCst, Ordering::SeqCst, |val| {
                                     val.checked_sub(1)
                                 })
                         {
@@ -353,7 +353,7 @@ impl CosmicStack {
                         let max = p.windows.lock().unwrap().len();
                         if let Ok(old) =
                             p.active
-                                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |val| {
+                                .try_update(Ordering::SeqCst, Ordering::SeqCst, |val| {
                                     if val < max - 1 { Some(val + 1) } else { None }
                                 })
                         {
@@ -1529,7 +1529,7 @@ impl SpaceElement for CosmicStack {
             let len = windows.len();
             let _ = p
                 .active
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |active| {
+                .try_update(Ordering::SeqCst, Ordering::SeqCst, |active| {
                     (active >= len).then_some(len - 1)
                 });
             let active = p.active.load(Ordering::SeqCst);

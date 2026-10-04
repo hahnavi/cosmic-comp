@@ -4,7 +4,7 @@ use crate::{
     backend::render::{
         CLEAR_COLOR, CursorMode, GlMultiError, GlMultiRenderer, PostprocessOutputConfig,
         PostprocessShader, PostprocessState,
-        element::{CosmicElement, DamageElement},
+        element::CosmicElement,
         init_shaders, output_elements,
     },
     config::ScreenFilter,
@@ -74,7 +74,7 @@ use smithay::{
         },
         wayland_server::protocol::wl_surface::WlSurface,
     },
-    utils::{Clock, Monotonic, Physical, Point, Rectangle, Transform},
+    utils::{Clock, Monotonic, Physical, Point, Rectangle, Size, Transform},
     wayland::{
         dmabuf::{DmabufFeedbackBuilder, get_dmabuf},
         image_copy_capture::{
@@ -1661,10 +1661,10 @@ fn take_screencopy_frames(
         .take_pending_frames()
         .into_iter()
         .map(|(session, frame)| {
-            let additional_damage = frame.damage();
-            if !additional_damage.is_empty() && output.current_mode().is_none() {
+            if !frame.damage().is_empty() && output.current_mode().is_none() {
                 return (session, frame, Err(OutputNoMode));
             }
+
             let session_data = session.user_data().get::<SessionData>().unwrap();
             let mut damage_tracking = session_data.lock().unwrap();
 
@@ -1674,34 +1674,6 @@ fn take_screencopy_frames(
                 0
             } else {
                 1
-            };
-
-            if !additional_damage.is_empty() {
-                let area = output
-                    .current_mode()
-                    .unwrap()
-                    /* TODO: Mode is Buffer..., why is this Physical in the first place */
-                    .size
-                    .to_logical(1)
-                    .to_buffer(1, Transform::Normal)
-                    .to_f64();
-
-                let additional_damage_elements: Vec<_> = additional_damage
-                    .into_iter()
-                    .map(|rect| {
-                        rect.to_f64()
-                            .to_logical(
-                                output.current_scale().fractional_scale(),
-                                output.current_transform(),
-                                &area,
-                            )
-                            .to_i32_round()
-                    })
-                    .map(DamageElement::new)
-                    .collect();
-                let _ = damage_tracking
-                    .dt
-                    .damage_output(age, &additional_damage_elements);
             };
 
             let res = damage_tracking.dt.damage_output(age, elements);
@@ -1732,6 +1704,17 @@ fn send_screencopy_result<'a>(
     presentation_time: Duration,
 ) -> Result<()> {
     let (damage, _) = res?;
+
+    let client_damage: Vec<Rectangle<i32, Physical>> = frame
+        .damage()
+        .into_iter()
+        .map(|rect| {
+            Rectangle::new(
+                Point::from((rect.loc.x, rect.loc.y)),
+                Size::from((rect.size.w, rect.size.h)),
+            )
+        })
+        .collect();
 
     let mut sync = SyncPoint::default();
     let mut dmabuf_clone;
@@ -1775,13 +1758,18 @@ fn send_screencopy_result<'a>(
         }
     };
 
-    if let Some(ref damage) = damage {
-        let (output_size, output_scale, output_transform) = (
-            output.current_mode().ok_or(OutputNoMode)?.size,
-            output.current_scale().fractional_scale(),
-            output.current_transform(),
-        );
+    let (output_size, output_scale, output_transform) = (
+        output.current_mode().ok_or(OutputNoMode)?.size,
+        output.current_scale().fractional_scale(),
+        output.current_transform(),
+    );
 
+    if damage.is_none() && client_damage.is_empty() && !shm_buffer {
+        frame.success(output_transform, Vec::new(), presentation_time);
+        return Ok(());
+    }
+
+    if let Some(ref damage) = damage {
         let filter = (!session.draw_cursor())
             .then(|| {
                 elements.iter().filter_map(|elem| {
@@ -1818,7 +1806,7 @@ fn send_screencopy_result<'a>(
                 .map_err(RenderError::<<GlMultiRenderer as RendererSuper>::Error>::Rendering)?;
 
             if let Some(fb) = fb.as_mut() {
-                for rect in adjusted.iter().copied() {
+                for rect in adjusted.iter().copied().chain(client_damage.iter().copied()) {
                     // TODO: On Vulkan, may need to combine sync points instead of just using latest?
                     sync = renderer
                         .blit(&tex_fb, fb, rect, rect, TextureFilter::Linear)
@@ -1833,6 +1821,7 @@ fn send_screencopy_result<'a>(
                 {
                     let cursor_damage = adjusted
                         .iter()
+                        .chain(client_damage.iter())
                         .filter_map(|rect| cursor_geometry.intersection(*rect))
                         .map(|rect| Rectangle::new(rect.loc - cursor_geometry.loc, rect.size))
                         .collect::<Vec<_>>();
@@ -1879,7 +1868,9 @@ fn send_screencopy_result<'a>(
                     output_scale,
                     renderer,
                     fb.as_mut().unwrap(),
-                    adjusted,
+                    adjusted
+                        .into_iter()
+                        .chain(client_damage.iter().copied()),
                     filter,
                 )
                 .map_err(|err| match err {
@@ -1902,6 +1893,7 @@ fn send_screencopy_result<'a>(
         renderer,
         shm_buffer.then_some(fb.as_mut().unwrap()),
         transform,
+        !client_damage.is_empty() || damage.as_ref().is_some_and(|d| !d.is_empty()),
         damage.as_deref(),
         sync,
         // Don't reference `Buffer`s since we blit from framebuffer/postprocess buffer
