@@ -2785,6 +2785,7 @@ impl State {
             |stage| {
                 match stage {
                     Stage::ZoomUI => {}
+                    Stage::MenuGrab => {}
                     Stage::SessionLock(lock_surface) => {
                         return ControlFlow::Break(Ok(lock_surface
                             .cloned()
@@ -2926,6 +2927,7 @@ impl State {
                             return ControlFlow::Break(Ok(Some((target, loc))));
                         }
                     }
+                    Stage::MenuGrab => {}
                     Stage::SessionLock(lock_surface) => {
                         return ControlFlow::Break(Ok(lock_surface.and_then(|surface| {
                             let location = output_geo.loc;

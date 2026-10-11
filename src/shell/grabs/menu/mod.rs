@@ -11,7 +11,7 @@ use cosmic::{
     Apply as _, Task,
     iced::{
         Alignment, Background,
-        core::{Border, Length, Rectangle as IcedRectangle, alignment::Horizontal},
+        core::{Border, Length, Rectangle as IcedRectangle},
         widget::{self as iced_widget, Row, text::Style as TextStyle},
     },
     theme,
@@ -68,6 +68,20 @@ mod default;
 mod item;
 pub use self::default::*;
 
+// Match cosmic-term's uniform app-context-menu width.
+const MENU_WIDTH: i32 = 360;
+// Four pixels from MenuColumn and one from the wrapping container, on each side.
+const MENU_HORIZONTAL_INSET: i32 = 10;
+
+fn menu_size_limit(output: &Output) -> Size<i32, Logical> {
+    let size = output.geometry().size.as_logical();
+    Size::new(size.w.min(MENU_WIDTH).max(1), size.h.max(1))
+}
+
+fn menu_item_width(menu_size: Size<i32, Logical>) -> f32 {
+    menu_size.w.saturating_sub(MENU_HORIZONTAL_INSET).max(1) as f32
+}
+
 pub struct MenuGrabState {
     elements: Arc<Mutex<Vec<Element>>>,
     screen_space_relative: Option<Output>,
@@ -86,7 +100,7 @@ impl MenuGrabState {
         R::TextureId: Send + Clone + 'static,
     {
         let scale = output.current_scale().fractional_scale();
-        for elem in self.elements.lock().unwrap().iter() {
+        for elem in self.elements.lock().unwrap().iter().rev() {
             elem.iced.push_render_elements(
                 renderer,
                 elem.position
@@ -290,6 +304,10 @@ impl Program for ContextMenu {
                             let mut elements = grab_state.elements.lock().unwrap();
 
                             let position = elements.last().unwrap().position;
+                            let item_left = bounds.x.floor() as i32;
+                            let item_right = item_left + bounds.width.floor() as i32;
+                            let item_top = bounds.y.ceil() as i32;
+                            let item_bottom = item_top + bounds.height.ceil() as i32;
                             let mut theme = state.common.theme.clone();
                             theme.transparent = theme.cosmic().frosted_system_interface;
                             let element = IcedElement::new(
@@ -299,48 +317,41 @@ impl Program for ContextMenu {
                                 theme,
                             );
 
-                            let min_size = element.minimum_size();
-                            element.with_program(|p| {
-                                *p.row_width.lock().unwrap() = Some(min_size.w as f32);
-                            });
-                            element.resize(min_size);
-
                             let output = seat.active_output();
+                            let size_limit = menu_size_limit(&output);
+                            let min_size = element.minimum_size_within(size_limit);
+                            let menu_size = Size::new(size_limit.w, min_size.h);
+                            element.with_program(|p| {
+                                *p.row_width.lock().unwrap() = Some(menu_item_width(menu_size));
+                            });
+                            element.resize(menu_size);
+
                             let position = [
                                 // to the right -> down
                                 Rectangle::new(
-                                    position
-                                        + Point::from((
-                                            bounds.width.floor() as i32,
-                                            bounds.y.ceil() as i32,
-                                        )),
-                                    min_size.as_global(),
+                                    position + Point::from((item_right, item_top)),
+                                    menu_size.as_global(),
                                 ),
                                 // to the right -> up
                                 Rectangle::new(
                                     position
-                                        + Point::from((
-                                            bounds.width.floor() as i32,
-                                            bounds.y.ceil() as i32 + bounds.height.ceil() as i32
-                                                - min_size.h,
-                                        )),
-                                    min_size.as_global(),
+                                        + Point::from((item_right, item_bottom - menu_size.h)),
+                                    menu_size.as_global(),
                                 ),
                                 // to the left -> down
                                 Rectangle::new(
                                     position
-                                        + Point::from((-min_size.w + 1, bounds.y.ceil() as i32)),
-                                    min_size.as_global(),
+                                        + Point::from((item_left - menu_size.w + 1, item_top)),
+                                    menu_size.as_global(),
                                 ),
                                 // to the left -> up
                                 Rectangle::new(
                                     position
                                         + Point::from((
-                                            -min_size.w + 1,
-                                            bounds.y.ceil() as i32 + bounds.height.ceil() as i32
-                                                - min_size.h,
+                                            item_left - menu_size.w + 1,
+                                            item_bottom - menu_size.h,
                                         )),
-                                    min_size.as_global(),
+                                    menu_size.as_global(),
                                 ),
                             ]
                             .iter()
@@ -392,6 +403,10 @@ impl Program for ContextMenu {
     }
 
     fn view(&self) -> cosmic::Element<'_, Self::Message> {
+        let ellipsize = cosmic::iced::core::text::Ellipsize::Middle(
+            cosmic::iced::core::text::EllipsizeHeightLimit::Lines(1),
+        );
+        let font_size = cosmic::config::font_size();
         let width = self
             .row_width
             .lock()
@@ -405,24 +420,27 @@ impl Program for ContextMenu {
 
         MenuColumn::with_children(self.items.iter().enumerate().map(|(idx, item)| {
             match item {
-                Item::Separator => divider::horizontal::light()
-                    .class(theme::Rule::Default)
+                Item::Separator => iced_widget::container(divider::horizontal::light())
+                    .padding([4, 0])
+                    .width(width)
                     .into(),
                 Item::Submenu { title, .. } => Row::with_children(vec![
-                    space::horizontal().width(16).into(),
-                    text::body(title).width(mode).into(),
-                    from_name("go-next-symbolic")
+                    text::text(title)
+                        .size(font_size)
+                        .ellipsize(ellipsize)
+                        .into(),
+                    space::horizontal().width(mode).into(),
+                    from_name("pan-end-symbolic")
                         .size(16)
-                        .prefer_svg(true)
                         .icon()
                         .into(),
                 ])
-                .spacing(8)
+                .height(Length::Shrink)
                 .width(width)
-                .padding([8, 16])
+                .padding([3, 16])
                 .align_y(Alignment::Center)
                 .apply(|row| item::SubmenuItem::new(row, idx))
-                .style(theme::Button::MenuItem)
+                .style(theme::Button::MenuFolder)
                 .into(),
                 Item::Entry {
                     title,
@@ -431,43 +449,42 @@ impl Program for ContextMenu {
                     disabled,
                     ..
                 } => {
-                    let mut components = vec![
-                        if *toggled {
+                    let mut components = Vec::with_capacity(4);
+                    if *toggled {
+                        components.push(
                             from_name("object-select-symbolic")
                                 .size(16)
-                                .prefer_svg(true)
                                 .icon()
                                 .class(theme::Svg::custom(|theme| iced_widget::svg::Style {
-                                    color: Some(theme.cosmic().accent.base.into()),
+                                    color: Some(theme.cosmic().accent_text_color().into()),
                                 }))
-                                .into()
-                        } else {
-                            space::horizontal().width(16).into()
-                        },
-                        text::body(title)
-                            .width(mode)
-                            .class(if *disabled {
-                                theme::Text::Custom(|theme| {
-                                    let mut color = theme.cosmic().background(false).component.on;
-                                    color.alpha *= 0.5;
-                                    TextStyle {
-                                        color: Some(color.into()),
-                                        ..Default::default()
-                                    }
-                                })
-                            } else {
-                                theme::Text::Default
-                            })
+                                .width(Length::Fixed(16.0))
+                                .into(),
+                        );
+                        components.push(
+                            space::horizontal()
+                                .width(cosmic::theme::spacing().space_xxs)
+                                .into(),
+                        );
+                    }
+                    components.push(
+                        text::text(title)
+                            .size(font_size)
+                            .ellipsize(ellipsize)
                             .into(),
-                        space::horizontal().width(16).into(),
-                    ];
+                    );
+                    components.push(space::horizontal().width(mode).into());
                     if let Some(shortcut) = shortcut.as_ref() {
                         components.push(
-                            text::body(shortcut)
-                                .align_x(Horizontal::Right)
-                                .width(Length::Shrink)
+                            text::text(shortcut)
+                                .size(font_size)
+                                .ellipsize(ellipsize)
                                 .class(theme::Text::Custom(|theme| {
-                                    let mut color = theme.cosmic().background(false).component.on;
+                                    let mut color = theme
+                                        .cosmic()
+                                        .background(theme.transparent)
+                                        .component
+                                        .on;
                                     color.alpha *= 0.75;
                                     TextStyle {
                                         color: Some(color.into()),
@@ -478,32 +495,35 @@ impl Program for ContextMenu {
                         );
                     }
 
-                    Row::with_children(components)
-                        .spacing(8)
-                        .width(mode)
-                        .align_y(Alignment::Center)
-                        .apply(button::custom)
+                    button::custom(
+                        Row::with_children(components)
+                            .align_y(Alignment::Center)
+                            .height(Length::Fill)
+                            .width(mode),
+                    )
+                        .height(Length::Shrink)
+                        .padding([3, 16])
                         .width(width)
-                        .padding([8, 16])
                         .on_press_maybe((!disabled).then_some(Message::ItemPressed(idx)))
                         .class(theme::Button::MenuItem)
                         .into()
                 }
             }
         }))
+        .padding(4.0)
         .width(Length::Shrink)
         .apply(iced_widget::container)
         .padding(1)
         .class(theme::Container::custom(|theme| {
             let cosmic = theme.cosmic();
-            let component = &cosmic.background(theme.cosmic().frosted_windows).component;
+            let component = &cosmic.background(theme.transparent).component;
             iced_widget::container::Style {
                 snap: true,
                 icon_color: Some(cosmic.accent.base.into()),
                 text_color: Some(component.on.into()),
                 background: Some(Background::Color(component.base.into())),
                 border: Border {
-                    radius: cosmic.radius_s().into(),
+                    radius: cosmic.corner_radii.radius_s.into(),
                     width: 1.0,
                     color: component.divider.into(),
                 },
@@ -1274,18 +1294,20 @@ impl MenuGrab {
     ) -> MenuGrab {
         let items = items.collect::<Vec<_>>();
         let element = IcedElement::new(ContextMenu::new(items), Size::default(), handle, theme);
-        let min_size = element.minimum_size();
-        element.with_program(|p| {
-            *p.row_width.lock().unwrap() = Some(min_size.w as f32);
-        });
-        element.resize(min_size);
-
         let output = seat.active_output();
+        let size_limit = menu_size_limit(&output);
+        let min_size = element.minimum_size_within(size_limit);
+        let menu_size = Size::new(size_limit.w, min_size.h);
+        element.with_program(|p| {
+            *p.row_width.lock().unwrap() = Some(menu_item_width(menu_size));
+        });
+        element.resize(menu_size);
+
         // TODO: This feels a lot like cheap xdg-positioner. Refactor and unify
         let position = alignment
             .rectangles(
                 position,
-                min_size
+                menu_size
                     .to_f64()
                     .upscale(screen_space_relative.unwrap_or(1.))
                     .to_i32_round()

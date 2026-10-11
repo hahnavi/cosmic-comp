@@ -582,7 +582,30 @@ pub fn cursor_elements<'a, 'frame, R>(
                 )));
             })
         }
+    }
+}
 
+fn menu_grab_elements<'a, R>(
+    renderer: &mut R,
+    seats: impl Iterator<Item = &'a Seat<State>>,
+    zoom_state: Option<&ZoomState>,
+    output: &Output,
+    push: &mut dyn FnMut(CosmicElement<R>),
+) where
+    R: AsGlowRenderer,
+    R::TextureId: Send + Clone + 'static,
+    CosmicMappedRenderElement<R>: RenderElement<R>,
+{
+    let (focal_point, zoom_scale) = zoom_state
+        .map(|state| {
+            (
+                state.animating_focal_point(Some(output)).to_local(output),
+                state.animating_level(output),
+            )
+        })
+        .unwrap_or_else(|| ((0., 0.).into(), 1.));
+
+    for seat in seats {
         if let Some(grab_state) = seat
             .user_data()
             .get::<SeatMenuGrabState>()
@@ -842,12 +865,16 @@ where
         )
     };
 
+    let mut menu_grab_index = None;
     render_input_order::<()>(&shell, output, previous, current, element_filter, |stage| {
         match stage {
             Stage::ZoomUI => {
                 ZoomState::render(renderer, output, &mut |elem| {
                     elements.push(CosmicElement::Zoom(elem))
                 });
+            }
+            Stage::MenuGrab => {
+                menu_grab_index = Some(elements.len());
             }
             Stage::SessionLock(lock_surface) => {
                 session_lock_elements(renderer, output, lock_surface, blur_strength, &mut |elem| {
@@ -1087,6 +1114,15 @@ where
 
         ControlFlow::Continue(())
     })?;
+
+    let menu_grab_index = menu_grab_index.unwrap_or(elements.len());
+    drop(shell);
+
+    let mut menu_elements = Vec::new();
+    menu_grab_elements(renderer, seats.iter(), zoom_level, output, &mut |elem| {
+        menu_elements.push(elem)
+    });
+    elements.splice(menu_grab_index..menu_grab_index, menu_elements);
 
     Ok(elements)
 }

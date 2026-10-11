@@ -53,13 +53,13 @@ png = "0.18"
 regex = "1"
 resvg = "0.48.1"
 ron = "0.12"
-rust-embed = { version = "8.11", features = ["debug-embed"] }
+rust-embed = { version = "8.13.0", features = ["debug-embed"] }
 sanitize-filename = "0.6.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2.0.21"
-jiff = "0.2"
-tiny-skia = "0.11.4"
+jiff = "0.2.38"
+tiny-skia = "0.12.0"
 tracing = { version = "0.1.44", features = [
     "max_level_debug",
     "release_max_level_info",
@@ -69,12 +69,12 @@ tracing-subscriber = { version = "0.3.22", features = [
     "env-filter",
     "tracing-log",
 ] }
-tracy-client = { version = "0.18.4", default-features = false }
+tracy-client = { version = "0.19.0", default-features = false }
 wayland-backend = "0.3.12"
 wayland-scanner = "0.31.8"
 xcursor = "0.3.10"
 xdg = "^3.0"
-xdg-user = "0.2.1"
+xdg-user = "0.3.0"
 xkbcommon = "0.9"
 zbus = "5.14.0"
 profiling = { version = "1.0" }
@@ -89,7 +89,7 @@ libmimalloc-sys = { version = "0.1", features = ["extended"] }
 notify = "8"
 futures-executor = { version = "0.3.32" }
 futures-util = "0.3.32"
-glam = { version = "0.33.12", default-features = false, features = ["std"] }
+glam = { version = "0.34.1", default-features = false, features = ["std"] }
 smallvec = "1.15.2"
 
 [dependencies.id_tree]
@@ -146,24 +146,30 @@ inherits = "release"
 
 [profile.release]
 codegen-units = 1
-lto = "fat"
+#lto = "thin"
 strip = "debuginfo"
 
-# [patch."https://github.com/hahnavi/cosmic-protocols"]
-# cosmic-protocols = { path = "../cosmic-protocols" }
+[patch."https://github.com/hahnavi/cosmic-protocols"]
+cosmic-protocols = { path = "../cosmic-protocols" }
 
-# [patch."https://github.com/hahnavi/libcosmic"]
-# libcosmic = { path = "../libcosmic" }
-# cosmic-config = { path = "../libcosmic/cosmic-config" }
-# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
-# iced_graphics = { path = "../libcosmic/iced/graphics" }
-# iced_tiny_skia = { path = "../libcosmic/iced/tiny_skia" }
+[patch."https://github.com/hahnavi/libcosmic"]
+libcosmic = { path = "../libcosmic" }
+cosmic-config = { path = "../libcosmic/cosmic-config" }
+cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+iced_graphics = { path = "../libcosmic/iced/graphics" }
+iced_tiny_skia = { path = "../libcosmic/iced/tiny_skia" }
 
 [patch."https://github.com/pop-os/libcosmic"]
-cosmic-config = { git = "https://github.com/hahnavi/libcosmic.git", branch = "hahnavi" }
-cosmic-theme = { git = "https://github.com/hahnavi/libcosmic.git", branch = "hahnavi" }
-# cosmic-config = { path = "../libcosmic/cosmic-config" }
-# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+# libcosmic = { git = "https://github.com/hahnavi/libcosmic", branch = "hahnavi" }
+# cosmic-config = { git = "https://github.com/hahnavi/libcosmic", branch = "hahnavi" }
+# cosmic-theme = { git = "https://github.com/hahnavi/libcosmic", branch = "hahnavi" }
+libcosmic = { path = "../libcosmic" }
+cosmic-config = { path = "../libcosmic/cosmic-config" }
+cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+
+[patch."https://github.com/pop-os/cosmic-protocols"]
+# cosmic-protocols = { git = "https://github.com/hahnavi/protocols", branch = "hahnavi" }
+cosmic-protocols = { path = "../cosmic-protocols" }
 
 [patch.crates-io]
 smithay = { git = "https://github.com/hahnavi/smithay.git", branch = "hahnavi" }

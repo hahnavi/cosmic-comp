@@ -706,8 +706,11 @@ impl Workspace {
             .iter()
             .position(|f| f.ended_at.is_none() && &f.surface == surface)
         {
-            let (surface, previous_state, previous_geometry) =
-                self.remove_fullscreen_at(idx).unwrap();
+            let (surface, previous_state, previous_geometry) = self.remove_fullscreen_at(idx)?;
+            if closing {
+                self.fullscreen_surfaces.remove(idx);
+                self.dirty.store(true, Ordering::SeqCst);
+            }
             return Some((
                 surface,
                 WorkspaceRestoreData::Fullscreen(previous_state.zip(previous_geometry).map(
@@ -755,7 +758,7 @@ impl Workspace {
 
         let mapped = mapped.clone();
         if closing {
-            mapped.start_fade_out();
+            mapped.mark_closed();
         }
         let layer = self.unmap_element(&mapped)?;
         Some((mapped.active_window(), layer))
@@ -1282,11 +1285,12 @@ impl Workspace {
         }
 
         self.dirty.store(true, Ordering::SeqCst);
+        let start_at = previous_geometry.is_some().then(Instant::now);
         self.fullscreen_surfaces.push(FullscreenSurface {
             surface: window.clone(),
             previous_state: restore,
             previous_geometry,
-            start_at: Some(Instant::now()),
+            start_at,
             ended_at: None,
         });
     }

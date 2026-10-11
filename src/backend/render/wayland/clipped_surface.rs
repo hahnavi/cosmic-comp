@@ -64,7 +64,7 @@ where
 
         let transform = elem.transform();
         let transform_matrix = Affine2::from_translation(Vec2::new(0.5, 0.5))
-            * transform.matrix()
+            * Affine2::from_cols_array(&transform.matrix().to_cols_array())
             * Affine2::from_translation(-Vec2::new(0.5, 0.5));
 
         let geo_scale = {

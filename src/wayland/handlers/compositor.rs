@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::{shell::grabs::SeatMoveGrabState, state::ClientState, utils::prelude::*};
+use crate::{
+    shell::grabs::{SeatMenuGrabState, SeatMoveGrabState},
+    state::ClientState,
+    utils::prelude::*,
+};
 use calloop::Interest;
 use smithay::{
     backend::{
@@ -424,12 +428,38 @@ impl State {
             .map(|pending| pending.surface.clone())
             && !layer_surface_check_inital_configure(&layer_surface)
         {
+            let screenshot_seat = if layer_surface.namespace() == "screenshot" {
+                shell
+                    .pending_layers
+                    .iter()
+                    .find(|pending| pending.surface == layer_surface)
+                    .map(|pending| pending.seat.clone())
+            } else {
+                None
+            };
+
             // compute initial dimensions by mapping
-            if let Some(target) = shell.map_layer(&layer_surface) {
-                let seat = shell.seats.last_active().clone();
-                std::mem::drop(shell);
+            let target = shell.map_layer(&layer_surface);
+            let seat = shell.seats.last_active().clone();
+            std::mem::drop(shell);
+
+            if let Some(target) = target {
                 Shell::set_focus(self, Some(&target), &seat, None, false);
             }
+
+            if let Some(seat) = screenshot_seat {
+                let menu_is_open = seat
+                    .user_data()
+                    .get::<SeatMenuGrabState>()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .is_some();
+                if menu_is_open && let Some(pointer) = seat.get_pointer() {
+                    pointer.unset_grab(self, SERIAL_COUNTER.next_serial(), InputTime::now());
+                }
+            }
+
             layer_surface.layer_surface().send_configure();
             return true;
         };

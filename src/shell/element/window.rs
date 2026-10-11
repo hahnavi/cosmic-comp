@@ -804,11 +804,11 @@ impl Program for CosmicWindowInternal {
                                 shell.workspaces.sets.iter().find(|(_, set)| {
                                     set.sticky_layer.mapped().any(|m| m == &mapped)
                                 }) {
-                                set.sticky_layer
-                                    .element_geometry(&mapped)
-                                    .unwrap()
-                                    .loc
-                                    .to_global(output)
+                                let Some(geometry) = set.sticky_layer.element_geometry(&mapped)
+                                else {
+                                    return;
+                                };
+                                geometry.loc.to_global(output)
                             } else if let Some(workspace) = shell.space_for(&mapped) {
                                 let Some(elem_geo) = workspace.element_geometry(&mapped) else {
                                     return;
@@ -818,7 +818,9 @@ impl Program for CosmicWindowInternal {
                                 return;
                             };
 
-                            let pointer = seat.get_pointer().unwrap();
+                            let Some(pointer) = seat.get_pointer() else {
+                                return;
+                            };
                             let mut cursor = pointer.current_location().to_i32_round();
                             cursor.y -= SSD_HEIGHT;
 

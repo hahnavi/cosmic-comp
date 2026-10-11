@@ -31,7 +31,6 @@ use crate::{
         CosmicSurface, Direction, ManagedLayer, MoveResult, ResizeMode,
         element::{
             CosmicMapped, CosmicMappedRenderElement, CosmicWindow, MaximizedState,
-            WINDOW_FADE_DURATION,
             resize_indicator::ResizeIndicator,
             stack::{CosmicStackRenderElement, MoveResult as StackMoveResult, TAB_HEIGHT},
             window::CosmicWindowRenderElement,
@@ -81,21 +80,16 @@ enum Animation {
         previous_geometry: Rectangle<i32, Local>,
         target_geometry: Rectangle<i32, Local>,
     },
-    FadeOut {
-        start: Instant,
-        previous_geometry: Rectangle<i32, Local>,
-    },
 }
 
 impl Animation {
     fn is_out_of_space(&self) -> bool {
-        matches!(self, Animation::Minimize { .. } | Animation::FadeOut { .. })
+        matches!(self, Animation::Minimize { .. })
     }
 
     fn duration(&self) -> Duration {
         match self {
             Animation::Tiled { .. } => ANIMATION_DURATION,
-            Animation::FadeOut { .. } => WINDOW_FADE_DURATION,
             _ => MINIMIZE_ANIMATION_DURATION,
         }
     }
@@ -105,7 +99,6 @@ impl Animation {
             Animation::Tiled { start, .. } => start,
             Animation::Minimize { start, .. } => start,
             Animation::Unminimize { start, .. } => start,
-            Animation::FadeOut { start, .. } => start,
         }
     }
 
@@ -128,7 +121,6 @@ impl Animation {
                     / MINIMIZE_ANIMATION_DURATION.as_secs_f32();
                 (percentage * 2.0).min(1.0)
             }
-            Animation::FadeOut { .. } => 1.0,
         }
     }
 
@@ -141,9 +133,6 @@ impl Animation {
                 previous_geometry, ..
             } => previous_geometry,
             Animation::Unminimize {
-                previous_geometry, ..
-            } => previous_geometry,
-            Animation::FadeOut {
                 previous_geometry, ..
             } => previous_geometry,
         }
@@ -163,7 +152,6 @@ impl Animation {
             | Animation::Unminimize {
                 target_geometry, ..
             } => (MINIMIZE_ANIMATION_DURATION, *target_geometry),
-            Animation::FadeOut { .. } => return *self.previous_geometry(),
             Animation::Tiled { .. } => {
                 let target_geometry = if let Some(target_rect) =
                     tiled_state.map(|state| state.relative_geometry(output_geometry, gaps))
@@ -394,8 +382,6 @@ impl FloatingLayout {
 
         mapped.moved_since_mapped.store(true, Ordering::SeqCst);
 
-        self.clear_fade_out(&mapped);
-
         if animate {
             if let Some(existing_anim) = self.animations.get_mut(&mapped) {
                 match existing_anim {
@@ -404,9 +390,7 @@ impl FloatingLayout {
                     } => {
                         *target_geometry = geometry;
                     }
-                    Animation::Minimize { .. }
-                    | Animation::Tiled { .. }
-                    | Animation::FadeOut { .. } => {}
+                    Animation::Minimize { .. } | Animation::Tiled { .. } => {}
                 }
             } else {
                 self.animations.insert(
@@ -433,12 +417,6 @@ impl FloatingLayout {
         self.space.refresh();
     }
 
-    fn clear_fade_out(&mut self, mapped: &CosmicMapped) {
-        if matches!(self.animations.get(mapped), Some(Animation::FadeOut { .. })) {
-            self.animations.remove(mapped);
-        }
-    }
-
     pub(in crate::shell) fn map_internal(
         &mut self,
         mapped: CosmicMapped,
@@ -446,8 +424,6 @@ impl FloatingLayout {
         size: Option<Size<i32, Logical>>,
         prev: Option<Rectangle<i32, Local>>,
     ) {
-        self.clear_fade_out(&mapped);
-
         let already_mapped = self.space.element_geometry(&mapped).map(RectExt::as_local);
         let mut win_geo = mapped.geometry().as_local();
 
@@ -718,14 +694,6 @@ impl FloatingLayout {
                         mapped_geometry
                     },
                     target_geometry: to,
-                },
-            );
-        } else if window.is_fading_out() {
-            self.animations.insert(
-                window.clone(),
-                Animation::FadeOut {
-                    start: Instant::now(),
-                    previous_geometry: mapped_geometry,
                 },
             );
         }
@@ -1454,11 +1422,10 @@ impl FloatingLayout {
     pub fn animations_going(&self) -> bool {
         self.dirty.swap(false, Ordering::SeqCst)
             || !self.animations.is_empty()
-            || self.space.elements().any(|elem| elem.is_fading())
     }
 
     pub fn has_animations(&self) -> bool {
-        !self.animations.is_empty() || self.space.elements().any(|elem| elem.is_fading())
+        !self.animations.is_empty()
     }
 
     pub fn update_animation_state(&mut self) {
@@ -1506,7 +1473,7 @@ impl FloatingLayout {
             .map(|(elem, _)| elem)
             .chain(self.space.elements().rev())
         {
-            let elem_alpha = alpha * elem.fade_alpha();
+            let elem_alpha = alpha;
             let (geometry, alpha) = self
                 .animations
                 .get(elem)
@@ -1565,7 +1532,7 @@ impl FloatingLayout {
             .map(|(elem, _)| elem)
             .chain(self.space.elements().rev())
         {
-            let elem_alpha = alpha * elem.fade_alpha();
+            let elem_alpha = alpha;
             let (mut geometry, alpha) = self
                 .animations
                 .get(elem)
@@ -1578,11 +1545,7 @@ impl FloatingLayout {
                 });
             let render_location = geometry.loc - elem.geometry().loc.as_local();
 
-            let maybe_map = if let Some(anim) = self
-                .animations
-                .get(elem)
-                .filter(|anim| !matches!(anim, Animation::FadeOut { .. }))
-            {
+            let maybe_map = if let Some(anim) = self.animations.get(elem) {
                 let original_geo = anim.previous_geometry();
                 geometry = anim.geometry(
                     output_geometry,

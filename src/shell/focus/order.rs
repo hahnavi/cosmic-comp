@@ -39,6 +39,7 @@ pub enum Stage<'a> {
         location: Point<i32, Global>,
         workspace_idx: usize,
     },
+    MenuGrab,
     OverrideRedirect {
         surface: &'a X11Surface,
         location: Point<i32, Global>,
@@ -194,6 +195,7 @@ fn render_input_order_internal<R: 'static>(
             workspace_idx: current.1,
         })?;
     }
+    callback(Stage::MenuGrab)?;
 
     // calculate a bunch of stuff for workspace transitions
 

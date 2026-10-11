@@ -386,6 +386,17 @@ impl<P: Program + Send + 'static> IcedElement<P> {
     }
 
     pub fn minimum_size(&self) -> Size<i32, Logical> {
+        self.minimum_size_with_limit(IcedSize::INFINITE)
+    }
+
+    pub fn minimum_size_within(&self, max_size: Size<i32, Logical>) -> Size<i32, Logical> {
+        self.minimum_size_with_limit(IcedSize::new(
+            max_size.w.max(1) as f32,
+            max_size.h.max(1) as f32,
+        ))
+    }
+
+    fn minimum_size_with_limit(&self, max_size: IcedSize) -> Size<i32, Logical> {
         let internal = self.0.lock().unwrap();
         let mut element = internal.state.program().program.view();
 
@@ -395,7 +406,7 @@ impl<P: Program + Send + 'static> IcedElement<P> {
             .layout(
                 &mut tree,
                 &internal.renderer,
-                &Limits::new(IcedSize::ZERO, IcedSize::INFINITE)
+                &Limits::new(IcedSize::ZERO, max_size)
                     .width(Length::Shrink)
                     .height(Length::Shrink),
             )

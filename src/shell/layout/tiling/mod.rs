@@ -497,6 +497,7 @@ impl TilingLayout {
         direction: Option<Direction>,
         minimize_rect: Option<Rectangle<i32, Local>>,
     ) {
+        let window = window.into();
         let gaps = self.gaps();
 
         let mut tree = self.queue.trees.back().unwrap().0.copy_clone();
@@ -505,6 +506,8 @@ impl TilingLayout {
             .map(|(node_id, _)| node_id);
         let duration = if minimize_rect.is_some() {
             MINIMIZE_ANIMATION_DURATION
+        } else if window.is_newly_opened() {
+            Duration::ZERO
         } else {
             ANIMATION_DURATION
         };
@@ -1518,6 +1521,8 @@ impl TilingLayout {
 
             let duration = if minimizing {
                 MINIMIZE_ANIMATION_DURATION
+            } else if mapped.is_closed() {
+                Duration::ZERO
             } else {
                 ANIMATION_DURATION
             };
@@ -2465,6 +2470,7 @@ impl TilingLayout {
             .filter(|w| !w.alive())
             .collect::<Vec<_>>();
         for dead_window in dead_windows.iter() {
+            dead_window.mark_closed();
             self.unmap_window_internal(dead_window, false);
         }
 
@@ -4559,6 +4565,9 @@ where
         if let Some((mut geo, depth)) = stack.pop() {
             let node: &Node<Data> = tree.get(&node_id).unwrap();
             let data = node.data();
+            if matches!(data, Data::Mapped { mapped, .. } if mapped.is_closed()) {
+                continue;
+            }
 
             let is_placeholder_sibling = node
                 .parent()
@@ -5291,6 +5300,7 @@ fn render_old_tree(
                 },
             )
             .filter(|(mapped, _, _, _)| !mapped.is_maximized(false))
+            .filter(|(mapped, _, _, _)| !mapped.is_closed())
             .filter(|(mapped, _, _, _)| {
                 if let Some(root) = target_tree.root_node_id() {
                     is_swap_mode
@@ -5332,8 +5342,6 @@ fn render_old_tree(
                 } else {
                     1.0 - percentage
                 };
-
-                let alpha = alpha * mapped.fade_alpha();
 
                 let elem_geometry = mapped.geometry().to_physical_precise_round(output_scale);
 
@@ -6000,13 +6008,11 @@ fn render_new_tree(
                 })
                 .unwrap_or(*original_geo);
 
-            // A window that was just opened fades in over
-            // `WINDOW_FADE_DURATION` instead of over the whole tree animation.
-            // Windows entering the tree for any other reason keep fading in
-            // with the animation.
-            let open_fade = match data {
-                Data::Mapped { mapped, .. } => mapped.open_fade_alpha(),
-                _ => None,
+            // Newly opened windows should appear immediately at full opacity.
+            // Other windows entering the tree keep fading in with the animation.
+            let newly_opened = match data {
+                Data::Mapped { mapped, .. } => mapped.is_newly_opened(),
+                _ => false,
             };
 
             let (geo, alpha, animating) = if let Some((old_geo, alpha)) = old_geo.filter(|_| {
@@ -6035,14 +6041,14 @@ fn render_new_tree(
                     alpha,
                     old_geo != new_geo,
                 )
-            } else if let Some(open_fade) = open_fade {
-                (new_geo, open_fade.max(percentage), false)
+            } else if newly_opened {
+                (new_geo, 1.0, false)
             } else {
                 (new_geo, percentage, false)
             };
 
             if let Data::Mapped { mapped, .. } = data
-                && mapped.is_maximized(false)
+                && (mapped.is_maximized(false) || mapped.is_closed())
             {
                 return;
             }

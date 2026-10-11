@@ -2992,7 +2992,7 @@ impl Shell {
             self.theme.clone(),
             self.appearance_conf,
         ));
-        mapped.start_fade_in();
+        mapped.mark_newly_opened();
         #[cfg(feature = "debug")]
         {
             mapped.set_debug(self.debug_active);
@@ -3112,12 +3112,12 @@ impl Shell {
             let surface = if let Some((idx, mapped)) = sticky_res {
                 if let Some(stack) = mapped.stack_ref() {
                     if stack.len() <= 1 {
-                        mapped.start_fade_out();
+                        mapped.mark_closed();
                         set.sticky_layer.unmap(&mapped, None);
                     }
                     stack.remove_idx(idx)
                 } else {
-                    mapped.start_fade_out();
+                    mapped.mark_closed();
                     set.sticky_layer.unmap(&mapped, None);
                     Some(mapped.active_window())
                 }
@@ -3672,11 +3672,11 @@ impl Shell {
                                  is_tiled: bool,
                                  is_sticky: bool,
                                  tiling_enabled: bool,
-                                 edge: ResizeEdge| {
+                                 edge: ResizeEdge| -> Option<Box<dyn Iterator<Item = Item>>> {
             let is_stacked = mapped.is_stack();
 
             if target_stack || !is_stacked {
-                Box::new(
+                Some(Box::new(
                     window_items(
                         mapped,
                         is_tiled,
@@ -3688,17 +3688,17 @@ impl Shell {
                     )
                     .collect::<Vec<Item>>()
                     .into_iter(),
-                ) as Box<dyn Iterator<Item = Item>>
+                ) as Box<dyn Iterator<Item = Item>>)
             } else {
                 let (tab, _) = mapped
                     .windows()
                     .find(|(s, _)| s.wl_surface().as_deref() == Some(surface))
-                    .unwrap();
-                Box::new(
+                    ?;
+                Some(Box::new(
                     tab_items(mapped, &tab, is_tiled, config)
                         .collect::<Vec<Item>>()
                         .into_iter(),
-                ) as Box<dyn Iterator<Item = Item>>
+                ) as Box<dyn Iterator<Item = Item>>)
             }
         };
 
@@ -3714,13 +3714,13 @@ impl Shell {
                     .map(|(mapped, relative_loc)| (set, mapped, relative_loc))
             }) {
             let output = set.output.clone();
-            let global_position = (set.sticky_layer.element_geometry(mapped).unwrap().loc
+            let global_position = (set.sticky_layer.element_geometry(mapped)?.loc
                 + relative_loc.as_local()
                 + location.as_local())
             .to_global(&output);
             (
                 global_position,
-                items_for_element(mapped, false, true, false, ResizeEdge::all()),
+                items_for_element(mapped, false, true, false, ResizeEdge::all())?,
             )
         } else if let Some((workspace, output)) = self.workspace_for_surface(surface) {
             let workspace = self.workspaces.space_for_handle(&workspace).unwrap();
@@ -3762,7 +3762,7 @@ impl Shell {
 
                 (
                     global_position,
-                    items_for_element(mapped, is_tiled, false, workspace.tiling_enabled, edge),
+                    items_for_element(mapped, is_tiled, false, workspace.tiling_enabled, edge)?,
                 )
             }
         } else {
